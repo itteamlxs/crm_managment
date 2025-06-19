@@ -8,7 +8,7 @@ class Security {
         header('X-Frame-Options: DENY');
         header('X-XSS-Protection: 1; mode=block');
         header('X-Content-Type-Options: nosniff');
-        header('Content-Security-Policy: default-src \'self\'; script-src \'self\' https://cdn.jsdelivr.net; style-src \'self\' https://cdn.jsdelivr.net \'unsafe-inline\'; font-src \'self\' https://cdn.jsdelivr.net');
+        header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' https://cdn.jsdelivr.net; style-src \'self\' \'unsafe-inline\' https://cdn.jsdelivr.net; font-src \'self\' https://cdn.jsdelivr.net');
     }
 
     // Escapar salida para prevenir XSS
