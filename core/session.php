@@ -15,10 +15,16 @@ class Session {
     private $timeout;
 
     public function __construct() {
-        // Si hay una sesión activa, destruirla para permitir nuevas configuraciones
+        // Si hay una sesión activa, NO destruirla para permitir continuidad
         if (session_status() === PHP_SESSION_ACTIVE) {
-            session_unset();
-            session_destroy();
+            $this->timeout = 1800;
+            $this->regenerateIdIfNeeded();
+            $this->checkTimeout();
+            // Generar token CSRF al inicio de la sesión si no existe
+            if (!isset($_SESSION['csrf_token'])) {
+                $this->generateCsrfToken();
+            }
+            return;
         }
 
         // Configurar opciones de sesión solo si no está activa
@@ -102,15 +108,24 @@ class Session {
         }
     }
 
-    // Validar token CSRF
+    // Obtener token CSRF actual (sin regenerar)
+    public function getCsrfToken() {
+        if (!isset($_SESSION['csrf_token'])) {
+            return $this->generateCsrfToken();
+        }
+        return $_SESSION['csrf_token'];
+    }
+
+    // Validar token CSRF - CORREGIDO: siempre generar nuevo token
     public function validateCsrfToken($token) {
         $storedToken = $_SESSION['csrf_token'] ?? '';
         error_log("Validating CSRF token: provided=$token, stored=$storedToken"); // Depuración
-        $isValid = hash_equals($storedToken, $token);
-        if ($isValid) {
-            unset($_SESSION['csrf_token']); // Eliminar token solo si es válido
-            $this->generateCsrfToken(); // Generar nuevo token solo si la validación es exitosa
-        }
+        
+        $isValid = !empty($storedToken) && !empty($token) && hash_equals($storedToken, $token);
+        
+        // CRÍTICO: Siempre generar nuevo token después de validación (exitosa o fallida)
+        $this->generateCsrfToken();
+        
         return $isValid;
     }
 
@@ -124,4 +139,3 @@ class Session {
         session_destroy();
     }
 }
-?>

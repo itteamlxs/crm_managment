@@ -1,5 +1,6 @@
 <?php
-require_once CONFIG_PATH . '/constants.php';
+// Cargar constants.php con ruta relativa directa (evitar dependencia circular)
+require_once dirname(__DIR__) . '/config/constants.php';
 
 class Security {
     // Configurar cabeceras HTTP de seguridad
@@ -7,21 +8,28 @@ class Security {
         header('X-Frame-Options: DENY');
         header('X-XSS-Protection: 1; mode=block');
         header('X-Content-Type-Options: nosniff');
-        header('Content-Security-Policy: default-src \'self\'; script-src \'self\' https://cdn.jsdelivr.net; style-src \'self\' https://cdn.jsdelivr.net');
+        header('Content-Security-Policy: default-src \'self\'; script-src \'self\' https://cdn.jsdelivr.net; style-src \'self\' https://cdn.jsdelivr.net \'unsafe-inline\'; font-src \'self\' https://cdn.jsdelivr.net');
     }
 
     // Escapar salida para prevenir XSS
     public static function escape($data) {
-        return htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (is_null($data)) {
+            return '';
+        }
+        return htmlspecialchars((string)$data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     // Sanitizar entrada según tipo
     public static function sanitize($data, $type) {
+        if (is_null($data)) {
+            return null;
+        }
+        
         switch ($type) {
             case 'string':
-                return filter_var($data, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+                return filter_var(trim($data), FILTER_SANITIZE_FULL_SPECIAL_CHARS);
             case 'email':
-                return filter_var($data, FILTER_SANITIZE_EMAIL);
+                return filter_var(trim($data), FILTER_SANITIZE_EMAIL);
             case 'int':
                 return filter_var($data, FILTER_SANITIZE_NUMBER_INT);
             case 'float':
@@ -33,11 +41,17 @@ class Security {
 
     // Validar entrada según tipo y longitud
     public static function validate($data, $type, $maxLength = null) {
+        if (is_null($data)) {
+            return false;
+        }
+        
         switch ($type) {
             case 'string':
-                return is_string($data) && ($maxLength ? strlen($data) <= $maxLength : true);
+                $isValid = is_string($data) && strlen(trim($data)) > 0;
+                return $isValid && ($maxLength ? strlen($data) <= $maxLength : true);
             case 'email':
-                return filter_var($data, FILTER_VALIDATE_EMAIL) && ($maxLength ? strlen($data) <= $maxLength : true);
+                $isValid = filter_var($data, FILTER_VALIDATE_EMAIL) !== false;
+                return $isValid && ($maxLength ? strlen($data) <= $maxLength : true);
             case 'int':
                 return filter_var($data, FILTER_VALIDATE_INT) !== false;
             case 'float':
@@ -45,6 +59,20 @@ class Security {
             default:
                 return false;
         }
+    }
+
+    // Validar formato de username (alfanumérico, guiones, puntos, @)
+    public static function validateUsername($username) {
+        if (!self::validate($username, 'string', MAX_NAME_LENGTH)) {
+            return false;
+        }
+        // Permitir letras, números, @, puntos, guiones y guiones bajos
+        return preg_match('/^[a-zA-Z0-9@._-]+$/', $username);
+    }
+
+    // Validar longitud mínima de contraseña
+    public static function validatePassword($password) {
+        return is_string($password) && strlen($password) >= 8;
     }
 }
 ?>

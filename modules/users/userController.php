@@ -29,51 +29,95 @@ class UserController {
         }
     }
 
-    // Procesar login
+    // Procesar login - MÉTODO PRINCIPAL CORREGIDO
     public function login() {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Validar token CSRF
+        // Solo procesar si es POST
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return ['error' => ''];
+        }
+
+        try {
+            // Validar token CSRF PRIMERO
             $csrfToken = $_POST['csrf_token'] ?? '';
             if (!$this->session->validateCsrfToken($csrfToken)) {
                 error_log("CSRF validation failed for login attempt");
-                return ['error' => 'Error de seguridad: Token CSRF inválido.'];
+                return ['error' => 'Error de seguridad: Token CSRF inválido. Intente nuevamente.'];
             }
 
-            $username = Security::sanitize($_POST['username'] ?? '', 'string');
+            // Obtener y validar datos del formulario
+            $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
 
-            try {
-                $user = $this->model->validateCredentials($username, $password);
-                if ($user) {
-                    $this->session->login($user['id'], $user['role']);
-                    header('Location: ' . BASE_URL . '/index.php?success=logged_in');
-                    exit;
-                } else {
-                    return ['error' => 'Credenciales inválidas o usuario inactivo.'];
-                }
-            } catch (Exception $e) {
-                error_log("Error during login: " . $e->getMessage());
-                return ['error' => $e->getMessage()];
+            // Validaciones básicas
+            if (empty($username) || empty($password)) {
+                return ['error' => 'Por favor, complete todos los campos.'];
             }
+
+            if (strlen($username) > MAX_NAME_LENGTH) {
+                return ['error' => 'El nombre de usuario es demasiado largo.'];
+            }
+
+            if (strlen($password) < 8) {
+                return ['error' => 'La contraseña debe tener al menos 8 caracteres.'];
+            }
+
+            // Sanitizar username
+            $username = Security::sanitize($username, 'string');
+            if (!$username) {
+                return ['error' => 'Nombre de usuario no válido.'];
+            }
+
+            // Intentar validar credenciales
+            $user = $this->model->validateCredentials($username, $password);
+            
+            if ($user) {
+                // Login exitoso
+                $this->session->login($user['id'], $user['role']);
+                
+                // Redirigir según el rol
+                if ($user['role'] == ROLE_ADMIN) {
+                    header('Location: ' . BASE_URL . '/modules/dashboard/dashboardView.php?success=logged_in');
+                } else {
+                    header('Location: ' . BASE_URL . '/modules/dashboard/dashboardView.php?success=logged_in');
+                }
+                exit;
+            } else {
+                return ['error' => 'Credenciales inválidas o usuario inactivo.'];
+            }
+
+        } catch (Exception $e) {
+            error_log("Error during login: " . $e->getMessage());
+            return ['error' => 'Error del sistema. Intente nuevamente.'];
         }
-        return [];
+    }
+
+    // Obtener token CSRF para formularios
+    public function getCsrfToken() {
+        return $this->session->getCsrfToken();
+    }
+
+    // Verificar si está autenticado
+    public function isAuthenticated() {
+        return $this->session->isLoggedIn();
     }
 
     // Procesar logout
     public function logout() {
         try {
             $this->session->destroy();
-            Utils::redirect('index.php');
+            header('Location: ' . BASE_URL . '/modules/users/loginView.php?success=logged_out');
+            exit;
         } catch (Exception $e) {
             error_log("Error during logout: " . $e->getMessage());
-            return ['error' => $e->getMessage()];
+            return ['error' => 'Error al cerrar sesión.'];
         }
     }
 
     // Listar usuarios (solo admin)
     public function list() {
         if (!$this->session->isLoggedIn() || !$this->session->hasRole(ROLE_ADMIN)) {
-            Utils::redirect('index.php?error=unauthorized');
+            header('Location: ' . BASE_URL . '/modules/users/loginView.php?error=unauthorized');
+            exit;
         }
         try {
             return $this->model->getAll();
@@ -86,8 +130,10 @@ class UserController {
     // Crear usuario (solo admin)
     public function create() {
         if (!$this->session->isLoggedIn() || !$this->session->hasRole(ROLE_ADMIN)) {
-            Utils::redirect('index.php?error=unauthorized');
+            header('Location: ' . BASE_URL . '/modules/users/loginView.php?error=unauthorized');
+            exit;
         }
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$this->session->validateCsrfToken($_POST['csrf_token'] ?? '')) {
                 return ['error' => 'Error de seguridad: Token CSRF inválido.'];
@@ -101,7 +147,8 @@ class UserController {
 
             try {
                 $this->model->create($username, $password, $role, $email, $name);
-                Utils::redirect('modules/users/userManagement.php?success=created');
+                header('Location: ' . BASE_URL . '/modules/users/userManagement.php?success=created');
+                exit;
             } catch (Exception $e) {
                 error_log("Error creating user: " . $e->getMessage());
                 return ['error' => $e->getMessage()];
@@ -113,8 +160,10 @@ class UserController {
     // Actualizar usuario (solo admin)
     public function update() {
         if (!$this->session->isLoggedIn() || !$this->session->hasRole(ROLE_ADMIN)) {
-            Utils::redirect('index.php?error=unauthorized');
+            header('Location: ' . BASE_URL . '/modules/users/loginView.php?error=unauthorized');
+            exit;
         }
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$this->session->validateCsrfToken($_POST['csrf_token'] ?? '')) {
                 return ['error' => 'Error de seguridad: Token CSRF inválido.'];
@@ -130,7 +179,8 @@ class UserController {
 
             try {
                 $this->model->update($id, $username, $email, $name, $role, $status, $password);
-                Utils::redirect('modules/users/userManagement.php?success=updated');
+                header('Location: ' . BASE_URL . '/modules/users/userManagement.php?success=updated');
+                exit;
             } catch (Exception $e) {
                 error_log("Error updating user: " . $e->getMessage());
                 return ['error' => $e->getMessage()];
@@ -142,15 +192,17 @@ class UserController {
     // Eliminar usuario (solo admin)
     public function delete($id) {
         if (!$this->session->isLoggedIn() || !$this->session->hasRole(ROLE_ADMIN)) {
-            Utils::redirect('index.php?error=unauthorized');
+            header('Location: ' . BASE_URL . '/modules/users/loginView.php?error=unauthorized');
+            exit;
         }
+        
         try {
             $this->model->delete($id);
-            Utils::redirect('modules/users/userManagement.php?success=deleted');
+            header('Location: ' . BASE_URL . '/modules/users/userManagement.php?success=deleted');
+            exit;
         } catch (Exception $e) {
             error_log("Error deleting user: " . $e->getMessage());
             return ['error' => $e->getMessage()];
         }
     }
 }
-?>
