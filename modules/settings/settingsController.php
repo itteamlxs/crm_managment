@@ -528,12 +528,37 @@ class SettingsController {
         }
     }
 
-    // Obtener versión de MySQL
+    // Obtener versión de MySQL - MÉTODO CORREGIDO
     private function getMysqlVersion() {
         try {
-            $version = $this->model->db->select("SELECT VERSION() as version");
-            return $version[0]['version'] ?? 'Desconocida';
+            // Intentar obtener la versión a través del modelo si tiene el método
+            if (method_exists($this->model, 'getMysqlVersion')) {
+                return $this->model->getMysqlVersion();
+            }
+            
+            // Cargar configuración de base de datos primero
+            $configPath = dirname(__DIR__, 2) . '/config/database.php';
+            if (file_exists($configPath)) {
+                require_once $configPath;
+            }
+            
+            // Verificar si las constantes están definidas después de cargar el archivo
+            if (defined('DB_HOST') && defined('DB_NAME') && defined('DB_USER') && defined('DB_PASS')) {
+                $pdo = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, 
+                    DB_USER, 
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+                $stmt = $pdo->query("SELECT VERSION() as version");
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                return $result['version'] ?? 'Desconocida';
+            }
+            
+            return 'No disponible - Config no encontrada';
+            
         } catch (Exception $e) {
+            error_log("Error getting MySQL version: " . $e->getMessage());
             return 'No disponible';
         }
     }
