@@ -62,12 +62,17 @@ class Session {
         }
     }
 
-    // Verificar timeout de sesión
+    // ✅ CORRECCIÓN: Verificar timeout solo si el usuario está logueado
     private function checkTimeout() {
-        if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $this->timeout)) {
-            $this->destroy();
-            throw new Exception('Sesión expirada por inactividad.');
+        // SOLO verificar timeout si hay un usuario logueado
+        if ($this->isLoggedIn()) {
+            if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $this->timeout)) {
+                $this->destroy();
+                throw new Exception('Sesión expirada por inactividad.');
+            }
         }
+        
+        // Actualizar actividad siempre (incluso para usuarios no logueados)
         $_SESSION['last_activity'] = time();
     }
 
@@ -116,15 +121,18 @@ class Session {
         return $_SESSION['csrf_token'];
     }
 
-    // Validar token CSRF - CORREGIDO: siempre generar nuevo token
+    // ✅ CORRECCIÓN: Validar token CSRF correctamente
     public function validateCsrfToken($token) {
         $storedToken = $_SESSION['csrf_token'] ?? '';
         error_log("Validating CSRF token: provided=$token, stored=$storedToken"); // Depuración
         
         $isValid = !empty($storedToken) && !empty($token) && hash_equals($storedToken, $token);
         
-        // CRÍTICO: Siempre generar nuevo token después de validación (exitosa o fallida)
-        $this->generateCsrfToken();
+        // CRÍTICO: Solo generar nuevo token DESPUÉS de devolver el resultado
+        // y solo si la validación fue exitosa
+        if ($isValid) {
+            $this->generateCsrfToken();
+        }
         
         return $isValid;
     }

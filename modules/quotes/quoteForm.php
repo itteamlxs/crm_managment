@@ -396,11 +396,11 @@ if ($isEdit && $quote && isset($quote['items'])) {
                 });
             }
             
-            // Calcular totales iniciales
-            calculateTotals();
-            
-            // Actualizar info del cliente si ya está seleccionado
-            updateClientInfo();
+            // Calcular totales solo después de un pequeño delay para asegurar que el DOM esté listo
+            setTimeout(function() {
+                calculateTotals();
+                updateClientInfo();
+            }, 100);
         });
 
         // Agregar nuevo item vacío
@@ -592,6 +592,19 @@ if ($isEdit && $quote && isset($quote['items'])) {
 
         // Calcular totales generales
         function calculateTotals() {
+            // Validar que los elementos existan antes de usarlos
+            const discountElement = document.getElementById('discount');
+            const subtotalDisplay = document.getElementById('subtotal-display');
+            const discountDisplay = document.getElementById('discount-display');
+            const taxDisplay = document.getElementById('tax-display');
+            const totalDisplay = document.getElementById('total-display');
+            
+            // Si algún elemento no existe, salir sin error
+            if (!discountElement || !subtotalDisplay || !discountDisplay || !taxDisplay || !totalDisplay) {
+                console.warn('Elementos de totales no encontrados, omitiendo cálculo');
+                return;
+            }
+            
             let subtotal = 0;
             let totalDiscountAmount = 0;
             let totalTaxAmount = 0;
@@ -600,11 +613,20 @@ if ($isEdit && $quote && isset($quote['items'])) {
             document.querySelectorAll('.item-row').forEach(function(row) {
                 const itemId = row.id.split('-')[1];
                 const select = document.querySelector(`select[name="items[${itemId}][product_id]"]`);
-                const quantity = parseFloat(document.querySelector(`input[name="items[${itemId}][quantity]"]`).value) || 0;
-                const unitPrice = parseFloat(document.querySelector(`input[name="items[${itemId}][unit_price]"]`).value) || 0;
-                const discount = parseFloat(document.querySelector(`input[name="items[${itemId}][discount]"]`).value) || 0;
+                const quantityInput = document.querySelector(`input[name="items[${itemId}][quantity]"]`);
+                const unitPriceInput = document.querySelector(`input[name="items[${itemId}][unit_price]"]`);
+                const discountInput = document.querySelector(`input[name="items[${itemId}][discount]"]`);
                 
-                if (select && select.value && quantity > 0 && unitPrice > 0) {
+                // Validar que todos los elementos del item existan
+                if (!select || !quantityInput || !unitPriceInput || !discountInput) {
+                    return; // Continuar con el siguiente item
+                }
+                
+                const quantity = parseFloat(quantityInput.value) || 0;
+                const unitPrice = parseFloat(unitPriceInput.value) || 0;
+                const discount = parseFloat(discountInput.value) || 0;
+                
+                if (select.value && quantity > 0 && unitPrice > 0) {
                     const option = select.options[select.selectedIndex];
                     const taxRate = parseFloat(option.getAttribute('data-tax')) || 0;
                     
@@ -620,7 +642,7 @@ if ($isEdit && $quote && isset($quote['items'])) {
             });
             
             // Aplicar descuento global
-            const globalDiscount = parseFloat(document.getElementById('discount').value) || 0;
+            const globalDiscount = parseFloat(discountElement.value) || 0;
             const subtotalAfterLineDiscounts = subtotal - totalDiscountAmount;
             const globalDiscountAmount = (subtotalAfterLineDiscounts * globalDiscount) / 100;
             const finalSubtotal = subtotalAfterLineDiscounts - globalDiscountAmount;
@@ -632,11 +654,15 @@ if ($isEdit && $quote && isset($quote['items'])) {
             const total = finalSubtotal + adjustedTaxAmount;
             const totalDiscountWithGlobal = totalDiscountAmount + globalDiscountAmount;
             
-            // Actualizar display
-            document.getElementById('subtotal-display').textContent = '$' + subtotal.toFixed(2);
-            document.getElementById('discount-display').textContent = '-$' + totalDiscountWithGlobal.toFixed(2);
-            document.getElementById('tax-display').textContent = '$' + adjustedTaxAmount.toFixed(2);
-            document.getElementById('total-display').textContent = '$' + total.toFixed(2);
+            // Actualizar display solo si los elementos existen
+            try {
+                subtotalDisplay.textContent = '$' + subtotal.toFixed(2);
+                discountDisplay.textContent = '-$' + totalDiscountWithGlobal.toFixed(2);
+                taxDisplay.textContent = '$' + adjustedTaxAmount.toFixed(2);
+                totalDisplay.textContent = '$' + total.toFixed(2);
+            } catch (error) {
+                console.error('Error actualizando totales:', error);
+            }
         }
 
         // Actualizar información del cliente
