@@ -315,7 +315,7 @@ class QuoteModel {
         }
     }
 
-    // Cambiar estado de la cotización
+    // Cambiar estado de la cotización (MODIFICADO PARA MANEJAR STOCK)
     public function changeStatus($id, $newStatus) {
         if (!Security::validate($id, 'int')) {
             throw new Exception('ID de cotización no válido.');
@@ -341,11 +341,132 @@ class QuoteModel {
         }
 
         try {
+            $this->db->beginTransaction();
+
+            // Si se está aprobando la cotización, verificar y descontar stock
+            if ($newStatus == QUOTE_STATUS_APPROVED && $quote['status'] != QUOTE_STATUS_APPROVED) {
+                $this->processStockDeduction($id);
+            }
+
+            // Actualizar el estado de la cotización
             $query = "UPDATE quotes SET status = ?, updated_at = NOW() WHERE id = ?";
-            return $this->db->execute($query, [(int)$newStatus, (int)$id]);
+            $result = $this->db->execute($query, [(int)$newStatus, (int)$id]);
+
+            $this->db->commit();
+            return $result;
+
         } catch (Exception $e) {
+            $this->db->rollback();
             error_log("Error changing quote status: " . $e->getMessage());
             throw new Exception('Error al cambiar estado de la cotización: ' . $e->getMessage());
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Procesar descuento de stock al aprobar cotización ***
+    private function processStockDeduction($quoteId) {
+        // Obtener todos los detalles de la cotización
+        $details = $this->getQuoteDetails($quoteId);
+        
+        if (empty($details)) {
+            throw new Exception('No se encontraron detalles para la cotización.');
+        }
+
+        // Verificar que hay suficiente stock para todos los productos
+        $stockValidation = $this->validateStockAvailability($details);
+        if (!$stockValidation['valid']) {
+            throw new Exception($stockValidation['message']);
+        }
+
+        // Descontar el stock de cada producto
+        foreach ($details as $detail) {
+            $this->deductProductStock($detail['product_id'], $detail['quantity']);
+        }
+
+        // Log de la operación
+        error_log("Stock deducido para cotización {$quoteId}: " . count($details) . " productos procesados");
+    }
+
+    // *** NUEVA FUNCIÓN: Validar disponibilidad de stock ***
+    private function validateStockAvailability($details) {
+        $unavailableProducts = [];
+        
+        foreach ($details as $detail) {
+            $productId = $detail['product_id'];
+            $requiredQuantity = $detail['quantity'];
+            
+            // Obtener stock actual del producto
+            $currentStock = $this->getCurrentStock($productId);
+            
+            // Si el producto maneja stock (no es NULL) y no hay suficiente
+            if ($currentStock !== null && $currentStock < $requiredQuantity) {
+                $unavailableProducts[] = [
+                    'name' => $detail['product_name'],
+                    'required' => $requiredQuantity,
+                    'available' => $currentStock
+                ];
+            }
+        }
+
+        if (!empty($unavailableProducts)) {
+            $message = "Stock insuficiente para los siguientes productos:\n";
+            foreach ($unavailableProducts as $product) {
+                $message .= "- {$product['name']}: necesario {$product['required']}, disponible {$product['available']}\n";
+            }
+            return ['valid' => false, 'message' => $message];
+        }
+
+        return ['valid' => true, 'message' => ''];
+    }
+
+    // *** NUEVA FUNCIÓN: Obtener stock actual de un producto ***
+    private function getCurrentStock($productId) {
+        try {
+            $query = "SELECT stock FROM products WHERE id = ? AND status = ?";
+            $result = $this->db->select($query, [(int)$productId, STATUS_ACTIVE]);
+            
+            if ($result && count($result) > 0) {
+                return $result[0]['stock']; // Puede ser NULL si no maneja inventario
+            }
+            
+            return null;
+        } catch (Exception $e) {
+            error_log("Error getting current stock for product {$productId}: " . $e->getMessage());
+            throw new Exception("Error al verificar stock del producto.");
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Descontar stock de un producto ***
+    private function deductProductStock($productId, $quantity) {
+        try {
+            // Verificar si el producto maneja stock
+            $currentStock = $this->getCurrentStock($productId);
+            
+            // Si el stock es NULL, no manejamos inventario para este producto
+            if ($currentStock === null) {
+                error_log("Producto {$productId} no maneja inventario, omitiendo descuento de stock");
+                return true;
+            }
+
+            // Verificar que hay suficiente stock (doble verificación)
+            if ($currentStock < $quantity) {
+                throw new Exception("Stock insuficiente para el producto ID {$productId}. Disponible: {$currentStock}, Requerido: {$quantity}");
+            }
+
+            // Descontar el stock
+            $newStock = $currentStock - $quantity;
+            $query = "UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?";
+            $result = $this->db->execute($query, [$newStock, (int)$productId]);
+
+            if ($result) {
+                error_log("Stock actualizado para producto {$productId}: {$currentStock} -> {$newStock} (descontado: {$quantity})");
+                return true;
+            } else {
+                throw new Exception("No se pudo actualizar el stock del producto ID {$productId}");
+            }
+
+        } catch (Exception $e) {
+            error_log("Error deducting stock for product {$productId}: " . $e->getMessage());
+            throw new Exception("Error al descontar stock: " . $e->getMessage());
         }
     }
 
@@ -647,5 +768,213 @@ class QuoteModel {
             throw new Exception('Error al marcar cotizaciones vencidas.');
         }
     }
+
+    // *** NUEVA FUNCIÓN PÚBLICA: Obtener historial de movimientos de stock por cotización ***
+    public function getStockMovements($quoteId) {
+        if (!Security::validate($quoteId, 'int')) {
+            throw new Exception('ID de cotización no válido.');
+        }
+
+        try {
+            $query = "SELECT 
+                        qd.product_id,
+                        qd.product_name,
+                        qd.quantity as quantity_deducted,
+                        p.stock as current_stock,
+                        q.quote_number,
+                        q.updated_at as processed_at
+                      FROM quote_details qd
+                      INNER JOIN quotes q ON qd.quote_id = q.id
+                      LEFT JOIN products p ON qd.product_id = p.id
+                      WHERE qd.quote_id = ? AND q.status = ?
+                      ORDER BY qd.id";
+            
+            return $this->db->select($query, [(int)$quoteId, QUOTE_STATUS_APPROVED]);
+        } catch (Exception $e) {
+            error_log("Error getting stock movements: " . $e->getMessage());
+            throw new Exception('Error al obtener movimientos de stock.');
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Revertir descuento de stock (para futuras implementaciones) ***
+    public function revertStockDeduction($quoteId) {
+        // Esta función podría usarse si en el futuro necesitas cancelar una cotización aprobada
+        // y devolver el stock a su estado anterior
+        
+        $quote = $this->getById($quoteId);
+        if (!$quote || $quote['status'] !== QUOTE_STATUS_APPROVED) {
+            throw new Exception('Solo se puede revertir stock de cotizaciones aprobadas.');
+        }
+
+        try {
+            $this->db->beginTransaction();
+            
+            $details = $this->getQuoteDetails($quoteId);
+            
+            foreach ($details as $detail) {
+                $this->restoreProductStock($detail['product_id'], $detail['quantity']);
+            }
+            
+            // Cambiar estado de la cotización a cancelada
+            $this->db->execute(
+                "UPDATE quotes SET status = ?, updated_at = NOW() WHERE id = ?",
+                [QUOTE_STATUS_CANCELLED, (int)$quoteId]
+            );
+            
+            $this->db->commit();
+            
+            error_log("Stock revertido para cotización {$quoteId}: " . count($details) . " productos procesados");
+            return true;
+            
+        } catch (Exception $e) {
+            $this->db->rollback();
+            error_log("Error reverting stock for quote {$quoteId}: " . $e->getMessage());
+            throw new Exception('Error al revertir descuento de stock: ' . $e->getMessage());
+        }
+    }
+
+    // *** FUNCIÓN HELPER: Restaurar stock de un producto ***
+    private function restoreProductStock($productId, $quantity) {
+        try {
+            $currentStock = $this->getCurrentStock($productId);
+            
+            // Si el stock es NULL, no manejamos inventario para este producto
+            if ($currentStock === null) {
+                error_log("Producto {$productId} no maneja inventario, omitiendo restauración de stock");
+                return true;
+            }
+
+            // Restaurar el stock
+            $newStock = $currentStock + $quantity;
+            $query = "UPDATE products SET stock = ?, updated_at = NOW() WHERE id = ?";
+            $result = $this->db->execute($query, [$newStock, (int)$productId]);
+
+            if ($result) {
+                error_log("Stock restaurado para producto {$productId}: {$currentStock} -> {$newStock} (restaurado: {$quantity})");
+                return true;
+            } else {
+                throw new Exception("No se pudo restaurar el stock del producto ID {$productId}");
+            }
+
+        } catch (Exception $e) {
+            error_log("Error restoring stock for product {$productId}: " . $e->getMessage());
+            throw new Exception("Error al restaurar stock: " . $e->getMessage());
+        }
+    }
+
+     public function checkLowStockAfterApproval($quoteId) {
+        try {
+            // Obtener productos que quedaron con stock bajo después de la aprobación
+            $query = "SELECT 
+                        p.id,
+                        p.name,
+                        p.stock,
+                        qd.quantity as quantity_deducted,
+                        (p.stock + qd.quantity) as stock_before
+                      FROM quote_details qd
+                      INNER JOIN products p ON qd.product_id = p.id
+                      WHERE qd.quote_id = ? 
+                      AND p.stock IS NOT NULL 
+                      AND p.stock <= ?
+                      AND p.status = ?";
+            
+            $lowStockProducts = $this->db->select($query, [
+                (int)$quoteId, 
+                LOW_STOCK_THRESHOLD, 
+                STATUS_ACTIVE
+            ]);
+            
+            if (!empty($lowStockProducts)) {
+                // Log de productos con stock bajo
+                $productNames = array_column($lowStockProducts, 'name');
+                error_log("ALERTA: Productos con stock bajo después de aprobar cotización {$quoteId}: " . implode(', ', $productNames));
+                
+                return [
+                    'has_low_stock' => true,
+                    'products' => $lowStockProducts,
+                    'message' => $this->generateLowStockMessage($lowStockProducts)
+                ];
+            }
+            
+            return ['has_low_stock' => false, 'products' => [], 'message' => ''];
+            
+        } catch (Exception $e) {
+            error_log("Error checking low stock after approval: " . $e->getMessage());
+            return ['has_low_stock' => false, 'products' => [], 'message' => ''];
+        }
+    }
+
+    // *** FUNCIÓN HELPER: Generar mensaje de alerta de stock bajo ***
+    private function generateLowStockMessage($lowStockProducts) {
+        if (empty($lowStockProducts)) {
+            return '';
+        }
+        
+        $message = "⚠️ ALERTA DE STOCK BAJO:\n\n";
+        $message .= "Los siguientes productos han quedado con stock bajo después de aprobar la cotización:\n\n";
+        
+        foreach ($lowStockProducts as $product) {
+            $message .= "• {$product['name']}: {$product['stock']} unidades restantes ";
+            $message .= "(antes tenía {$product['stock_before']}, se descontaron {$product['quantity_deducted']})\n";
+        }
+        
+        $message .= "\n💡 Considere reabastecer estos productos pronto.";
+        
+        return $message;
+    }
+
+    // *** NUEVA FUNCIÓN PÚBLICA: Obtener todos los productos con stock bajo ***
+    public function getAllLowStockProducts() {
+        try {
+            $query = "SELECT 
+                        id,
+                        name,
+                        stock,
+                        unit,
+                        base_price
+                      FROM products 
+                      WHERE stock IS NOT NULL 
+                      AND stock <= ? 
+                      AND status = ?
+                      ORDER BY stock ASC, name ASC";
+            
+            return $this->db->select($query, [LOW_STOCK_THRESHOLD, STATUS_ACTIVE]);
+            
+        } catch (Exception $e) {
+            error_log("Error getting low stock products: " . $e->getMessage());
+            throw new Exception('Error al obtener productos con stock bajo.');
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Obtener estadísticas de stock ***
+    public function getStockStatistics() {
+        try {
+            $query = "SELECT 
+                        COUNT(*) as total_products_with_stock,
+                        SUM(CASE WHEN stock <= ? THEN 1 ELSE 0 END) as low_stock_count,
+                        SUM(CASE WHEN stock <= ? THEN 1 ELSE 0 END) as critical_stock_count,
+                        SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock_count,
+                        AVG(stock) as avg_stock_level
+                      FROM products 
+                      WHERE stock IS NOT NULL AND status = ?";
+            
+            $result = $this->db->select($query, [
+                LOW_STOCK_THRESHOLD,
+                STOCK_WARNING_THRESHOLD,
+                STATUS_ACTIVE
+            ]);
+            
+            if ($result) {
+                $stats = $result[0];
+                $stats['avg_stock_level'] = round($stats['avg_stock_level'] ?? 0, 2);
+                return $stats;
+            }
+            
+            return [];
+            
+        } catch (Exception $e) {
+            error_log("Error getting stock statistics: " . $e->getMessage());
+            throw new Exception('Error al obtener estadísticas de stock.');
+        }
+    }
 }
-?>

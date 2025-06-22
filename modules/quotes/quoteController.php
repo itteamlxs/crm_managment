@@ -251,7 +251,17 @@ class QuoteController {
         }
 
         try {
+            // Ejecutar el cambio de estado (que incluye el descuento de stock si es aprobación)
             $this->quoteModel->changeStatus($id, $newStatus);
+            
+            // Si se aprobó la cotización, verificar stock bajo
+            $alertMessage = '';
+            if ($newStatus == QUOTE_STATUS_APPROVED) {
+                $stockAlert = $this->quoteModel->checkLowStockAfterApproval($id);
+                if ($stockAlert['has_low_stock']) {
+                    $alertMessage = '&stock_alert=' . urlencode($stockAlert['message']);
+                }
+            }
             
             $statusNames = [
                 QUOTE_STATUS_DRAFT => 'borrador',
@@ -263,11 +273,93 @@ class QuoteController {
             ];
             
             $action = isset($statusNames[$newStatus]) ? $statusNames[$newStatus] : 'actualizada';
-            header('Location: ' . BASE_URL . '/modules/quotes/quoteList.php?success=' . $action);
+            header('Location: ' . BASE_URL . '/modules/quotes/quoteList.php?success=' . $action . $alertMessage);
             exit;
+            
         } catch (Exception $e) {
             error_log("Error changing quote status: " . $e->getMessage());
             return ['error' => $e->getMessage()];
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Obtener productos con stock bajo ***
+    public function getLowStockProducts() {
+        $this->checkAuth();
+        
+        try {
+            return $this->quoteModel->getAllLowStockProducts();
+        } catch (Exception $e) {
+            error_log("Error getting low stock products: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Obtener estadísticas de stock ***
+    public function getStockStatistics() {
+        $this->checkAuth();
+        
+        try {
+            return $this->quoteModel->getStockStatistics();
+        } catch (Exception $e) {
+            error_log("Error getting stock statistics: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    // *** NUEVA FUNCIÓN: Verificar stock disponible antes de crear/editar cotización ***
+    public function validateStockForQuote($items) {
+        $this->checkAuth();
+        
+        $warnings = [];
+        
+        foreach ($items as $item) {
+            if (!isset($item['product_id']) || !isset($item['quantity'])) {
+                continue;
+            }
+            
+            try {
+                $productInfo = $this->getProductStockInfo($item['product_id']);
+                
+                if ($productInfo && $productInfo['stock'] !== null) {
+                    $requiredQuantity = (int)$item['quantity'];
+                    $availableStock = (int)$productInfo['stock'];
+                    
+                    if ($availableStock < $requiredQuantity) {
+                        $warnings[] = [
+                            'product_name' => $productInfo['name'],
+                            'required' => $requiredQuantity,
+                            'available' => $availableStock,
+                            'deficit' => $requiredQuantity - $availableStock
+                        ];
+                    } elseif ($availableStock - $requiredQuantity <= STOCK_WARNING_THRESHOLD) {
+                        $warnings[] = [
+                            'product_name' => $productInfo['name'],
+                            'required' => $requiredQuantity,
+                            'available' => $availableStock,
+                            'warning' => 'Stock quedará muy bajo después de la venta'
+                        ];
+                    }
+                }
+                
+            } catch (Exception $e) {
+                error_log("Error validating stock for product {$item['product_id']}: " . $e->getMessage());
+            }
+        }
+        
+        return $warnings;
+    }
+
+    // *** FUNCIÓN HELPER: Obtener información de stock de un producto ***
+    private function getProductStockInfo($productId) {
+        try {
+            $db = new Database();
+            $query = "SELECT id, name, stock, unit FROM products WHERE id = ? AND status = ?";
+            $result = $db->select($query, [(int)$productId, STATUS_ACTIVE]);
+            
+            return $result ? $result[0] : null;
+        } catch (Exception $e) {
+            error_log("Error getting product stock info: " . $e->getMessage());
+            return null;
         }
     }
 

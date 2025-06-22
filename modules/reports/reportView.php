@@ -169,7 +169,7 @@ $reportConfig = [
         <div class="mb-8">
             <h1 class="text-3xl font-bold text-gray-900 mb-2">
                 <i class="fas fa-chart-bar text-blue-600"></i>
-                Generador de Reportes Dinamicos
+                Generador de Reportes Personalizados
             </h1>
             <p class="text-gray-600">Seleccione los campos que necesita y genere reportes personalizados en CSV</p>
         </div>
