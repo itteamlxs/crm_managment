@@ -1,5 +1,5 @@
 <?php
-// Controlador para gestionar configuraciones del sistema CRM
+// Controlador para gestionar configuraciones del sistema CRM - CORREGIDO
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -79,7 +79,7 @@ class SettingsController {
         }
     }
 
-    // Actualizar configuración general de la empresa
+    // Actualizar configuración general de la empresa - CORREGIDO CON COMPANY_SLOGAN
     public function updateGeneralSettings() {
         $this->checkAdminAuth();
         
@@ -92,6 +92,7 @@ class SettingsController {
             try {
                 $data = [
                     'company_name' => $_POST['company_name'] ?? '',
+                    'company_slogan' => $_POST['company_slogan'] ?? '', // ← AGREGADO
                     'company_address' => $_POST['company_address'] ?? '',
                     'company_phone' => $_POST['company_phone'] ?? '',
                     'company_email' => $_POST['company_email'] ?? '',
@@ -454,7 +455,7 @@ class SettingsController {
         }
     }
 
-    // Resetear configuración a valores por defecto
+    // Resetear configuración a valores por defecto - ACTUALIZADO CON SLOGAN
     public function resetToDefaults() {
         $this->checkAdminAuth();
         
@@ -468,6 +469,7 @@ class SettingsController {
                 // Resetear configuraciones por secciones
                 $defaultData = [
                     'company_name' => 'Mi Empresa CRM',
+                    'company_slogan' => 'Tu socio confiable en crecimiento empresarial', // ← AGREGADO
                     'company_address' => '',
                     'company_phone' => '',
                     'company_email' => '',
