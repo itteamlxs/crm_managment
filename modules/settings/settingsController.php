@@ -1,5 +1,5 @@
 <?php
-// Controlador para gestionar configuraciones del sistema CRM - CORREGIDO
+// Controlador mejorado con mejor manejo de permisos para upload de logo
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -79,7 +79,7 @@ class SettingsController {
         }
     }
 
-    // Actualizar configuración general de la empresa - CORREGIDO CON COMPANY_SLOGAN
+    // Actualizar configuración general de la empresa
     public function updateGeneralSettings() {
         $this->checkAdminAuth();
         
@@ -92,7 +92,7 @@ class SettingsController {
             try {
                 $data = [
                     'company_name' => $_POST['company_name'] ?? '',
-                    'company_slogan' => $_POST['company_slogan'] ?? '', // ← AGREGADO
+                    'company_slogan' => $_POST['company_slogan'] ?? '',
                     'company_address' => $_POST['company_address'] ?? '',
                     'company_phone' => $_POST['company_phone'] ?? '',
                     'company_email' => $_POST['company_email'] ?? '',
@@ -233,7 +233,7 @@ class SettingsController {
         return [];
     }
 
-    // Subir logo de la empresa
+    // MÉTODO MEJORADO: Subir logo de la empresa con mejor manejo de permisos
     public function uploadLogo() {
         $this->checkAdminAuth();
         
@@ -248,17 +248,19 @@ class SettingsController {
             }
 
             try {
-                // Crear directorio de logos si no existe
+                // Ruta del directorio de logos
                 $logoDir = dirname(__DIR__, 2) . '/assets/images/logos';
-                if (!is_dir($logoDir)) {
-                    mkdir($logoDir, 0755, true);
+                
+                // CREAR DIRECTORIO CON PERMISOS MEJORADOS
+                if (!$this->createLogoDirectory($logoDir)) {
+                    return ['error' => 'No se pudo crear el directorio de logos. Verifique permisos.'];
                 }
 
                 // Validar archivo
                 $allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
                 $maxSize = 2 * 1024 * 1024; // 2MB
 
-                $uploadResult = Utils::uploadFile($_FILES['logo'], $logoDir, $allowedTypes, $maxSize);
+                $uploadResult = $this->uploadFileImproved($_FILES['logo'], $logoDir, $allowedTypes, $maxSize);
                 
                 if (!$uploadResult['success']) {
                     return ['error' => $uploadResult['message']];
@@ -266,8 +268,8 @@ class SettingsController {
 
                 // Eliminar logo anterior si existe
                 $currentSettings = $this->model->getAll();
-                if ($currentSettings['company_logo'] && file_exists($logoDir . '/' . $currentSettings['company_logo'])) {
-                    unlink($logoDir . '/' . $currentSettings['company_logo']);
+                if ($currentSettings['company_logo'] && file_exists(dirname(__DIR__, 2) . '/' . $currentSettings['company_logo'])) {
+                    unlink(dirname(__DIR__, 2) . '/' . $currentSettings['company_logo']);
                 }
 
                 // Actualizar ruta del logo en BD
@@ -284,6 +286,133 @@ class SettingsController {
         }
         
         return [];
+    }
+
+    // MÉTODO NUEVO: Crear directorio con permisos adecuados
+    private function createLogoDirectory($logoDir) {
+        try {
+            // Si el directorio ya existe y es escribible, no hacer nada
+            if (is_dir($logoDir) && is_writable($logoDir)) {
+                return true;
+            }
+
+            // Crear directorio padre si no existe
+            $assetsDir = dirname($logoDir, 2);
+            $imagesDir = dirname($logoDir);
+            
+            if (!is_dir($assetsDir)) {
+                mkdir($assetsDir, 0755, true);
+            }
+            
+            if (!is_dir($imagesDir)) {
+                mkdir($imagesDir, 0755, true);
+            }
+
+            // Crear directorio de logos
+            if (!is_dir($logoDir)) {
+                if (!mkdir($logoDir, 0777, true)) {
+                    error_log("Failed to create logo directory: $logoDir");
+                    return false;
+                }
+            }
+
+            // Intentar cambiar permisos
+            chmod($logoDir, 0777);
+            
+            // Verificar que sea escribible
+            if (!is_writable($logoDir)) {
+                error_log("Logo directory is not writable: $logoDir");
+                
+                // Intentar cambiar propietario (puede fallar sin sudo)
+                $webUser = $this->getWebUser();
+                if ($webUser) {
+                    @chown($logoDir, $webUser);
+                    @chgrp($logoDir, $webUser);
+                }
+                
+                // Verificar de nuevo
+                if (!is_writable($logoDir)) {
+                    return false;
+                }
+            }
+
+            return true;
+
+        } catch (Exception $e) {
+            error_log("Error creating logo directory: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // MÉTODO NUEVO: Obtener usuario web
+    private function getWebUser() {
+        // Detectar usuario del servidor web
+        $possibleUsers = ['www-data', 'apache', 'httpd', 'daemon', 'nobody'];
+        
+        foreach ($possibleUsers as $user) {
+            if (function_exists('posix_getpwnam') && posix_getpwnam($user)) {
+                return $user;
+            }
+        }
+        
+        return null;
+    }
+
+    // MÉTODO MEJORADO: Upload de archivo con mejor manejo de errores
+    private function uploadFileImproved($file, $uploadDir, $allowedTypes, $maxSize) {
+        try {
+            // Validar tipo de archivo
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mimeType, $allowedTypes)) {
+                return [
+                    'success' => false,
+                    'message' => 'Tipo de archivo no permitido. Use JPG, PNG o GIF.'
+                ];
+            }
+
+            // Validar tamaño
+            if ($file['size'] > $maxSize) {
+                return [
+                    'success' => false,
+                    'message' => 'Archivo muy grande. Máximo 2MB.'
+                ];
+            }
+
+            // Generar nombre único
+            $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = uniqid() . '.' . strtolower($extension);
+            $fullPath = $uploadDir . '/' . $filename;
+
+            // Intentar mover archivo
+            if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
+                $error = error_get_last();
+                error_log("Move uploaded file failed: " . ($error['message'] ?? 'Unknown error'));
+                
+                return [
+                    'success' => false,
+                    'message' => 'Error al guardar archivo. Verifique permisos del directorio.'
+                ];
+            }
+
+            // Establecer permisos del archivo
+            chmod($fullPath, 0644);
+
+            return [
+                'success' => true,
+                'filename' => $filename,
+                'path' => $fullPath
+            ];
+
+        } catch (Exception $e) {
+            error_log("Upload error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'Error interno al subir archivo.'
+            ];
+        }
     }
 
     // Eliminar logo actual
@@ -455,7 +584,7 @@ class SettingsController {
         }
     }
 
-    // Resetear configuración a valores por defecto - ACTUALIZADO CON SLOGAN
+    // Resetear configuración a valores por defecto
     public function resetToDefaults() {
         $this->checkAdminAuth();
         
@@ -469,7 +598,7 @@ class SettingsController {
                 // Resetear configuraciones por secciones
                 $defaultData = [
                     'company_name' => 'Mi Empresa CRM',
-                    'company_slogan' => 'Tu socio confiable en crecimiento empresarial', // ← AGREGADO
+                    'company_slogan' => 'Tu socio confiable en crecimiento empresarial',
                     'company_address' => '',
                     'company_phone' => '',
                     'company_email' => '',
@@ -530,21 +659,18 @@ class SettingsController {
         }
     }
 
-    // Obtener versión de MySQL - MÉTODO CORREGIDO
+    // Obtener versión de MySQL
     private function getMysqlVersion() {
         try {
-            // Intentar obtener la versión a través del modelo si tiene el método
             if (method_exists($this->model, 'getMysqlVersion')) {
                 return $this->model->getMysqlVersion();
             }
             
-            // Cargar configuración de base de datos primero
             $configPath = dirname(__DIR__, 2) . '/config/database.php';
             if (file_exists($configPath)) {
                 require_once $configPath;
             }
             
-            // Verificar si las constantes están definidas después de cargar el archivo
             if (defined('DB_HOST') && defined('DB_NAME') && defined('DB_USER') && defined('DB_PASS')) {
                 $pdo = new PDO(
                     "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, 

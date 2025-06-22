@@ -373,6 +373,14 @@ function getStatusClass($status) {
                                                 Ver
                                             </button>
                                             
+                                            <!-- Botón directo para imprimir PDF -->
+                                            <a href="printQuote.php?id=<?php echo $quote['id']; ?>" 
+                                               target="_blank"
+                                               class="text-purple-600 hover:text-purple-900"
+                                               title="Imprimir PDF">
+                                                PDF
+                                            </a>
+                                            
                                             <?php if ($controller->canEditQuote($quote['status'])): ?>
                                                 <a href="quoteForm.php?id=<?php echo $quote['id']; ?>" 
                                                    class="text-blue-600 hover:text-blue-900">
@@ -577,7 +585,7 @@ function getStatusClass($status) {
                             </button>
                             <button type="button" id="modalPrintBtn" 
                                     class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
-                                Imprimir
+                                Generar PDF
                             </button>
                         </div>
                         <button type="button" id="modalCloseBtn" 
@@ -644,9 +652,15 @@ function getStatusClass($status) {
             }
         }
 
-        // Función para imprimir
+        // Función para imprimir cotización como PDF - ¡ACTUALIZADA!
         function printQuoteModal() {
-            window.print();
+            if (currentQuote) {
+                // Abrir el PDF en una nueva ventana
+                const printUrl = 'printQuote.php?id=' + currentQuote.id;
+                window.open(printUrl, '_blank');
+            } else {
+                alert('No hay cotización seleccionada para imprimir.');
+            }
         }
 
         // Función para formatear fechas
@@ -724,17 +738,5 @@ function getStatusClass($status) {
             });
         });
     </script>
-
-    <style>
-        @media print {
-            body * { visibility: hidden; }
-            #quoteModal, #quoteModal * { visibility: visible; }
-            #quoteModal { 
-                position: static !important; 
-                background: white !important; 
-            }
-            .no-print { display: none !important; }
-        }
-    </style>
 </body>
 </html>
