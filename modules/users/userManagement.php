@@ -154,6 +154,7 @@ if (isset($_GET['success'])) {
     </script>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <?php require_once dirname(__DIR__, 2) . '/core/nav.php'; ?>
     <div class="container mx-auto px-4 py-8">
         
         <!-- Header -->
