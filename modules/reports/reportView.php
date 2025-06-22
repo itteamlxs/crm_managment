@@ -3,7 +3,6 @@ require_once dirname(dirname(__DIR__)) . '/config/constants.php';
 require_once CORE_PATH . '/session.php';
 require_once CORE_PATH . '/security.php';
 require_once CORE_PATH . '/utils.php';
-require_once __DIR__ . '/reportController.php';
 
 // Configurar headers de seguridad
 Security::setHeaders();
@@ -14,27 +13,142 @@ if (!$session->isLoggedIn()) {
     Utils::redirect('/login.php');
 }
 
-// Procesar solicitudes
-if (isset($_GET['action']) && $_GET['action'] !== 'view') {
-    $controller = new ReportController();
-    $controller->handleRequest();
-}
-
-// Obtener datos de la sesión
-$reportData = $_SESSION['report_data'] ?? [];
-$reportType = $_SESSION['report_type'] ?? 'dashboard';
-$currentUser = [
-    'name' => $session->getUserName(),
-    'role' => $session->getUserRole()
-];
-
-// Limpiar datos de sesión después de obtenerlos
-unset($_SESSION['report_data'], $_SESSION['report_type']);
-
 // Obtener mensajes
 $error = $_SESSION['error'] ?? '';
 $success = $_SESSION['success'] ?? '';
 unset($_SESSION['error'], $_SESSION['success']);
+
+// Configuración de campos disponibles para reportes
+$reportConfig = [
+    'cotizaciones' => [
+        'title' => 'Reportes de Cotizaciones',
+        'description' => 'Genere reportes personalizados de cotizaciones con los campos que necesite',
+        'icon' => 'fas fa-file-invoice',
+        'color' => 'blue',
+        'tables' => [
+            'quotes' => [
+                'label' => 'Cotizaciones',
+                'fields' => [
+                    'id' => 'ID de Cotización',
+                    'quote_number' => 'Número de Cotización',
+                    'quote_date' => 'Fecha de Cotización',
+                    'valid_until' => 'Válida Hasta',
+                    'subtotal' => 'Subtotal',
+                    'discount_percent' => 'Descuento (%)',
+                    'tax_amount' => 'Impuestos',
+                    'total_amount' => 'Total',
+                    'status' => 'Estado',
+                    'notes' => 'Notas',
+                    'created_at' => 'Fecha de Creación'
+                ]
+            ],
+            'clients' => [
+                'label' => 'Cliente',
+                'fields' => [
+                    'name' => 'Nombre del Cliente',
+                    'email' => 'Email del Cliente',
+                    'phone' => 'Teléfono del Cliente',
+                    'address' => 'Dirección del Cliente'
+                ]
+            ],
+            'users' => [
+                'label' => 'Vendedor/Usuario',
+                'fields' => [
+                    'username' => 'Usuario que Creó',
+                    'full_name' => 'Nombre del Vendedor',
+                    'email' => 'Email del Vendedor'
+                ]
+            ]
+        ]
+    ],
+    'productos' => [
+        'title' => 'Reportes de Productos',
+        'description' => 'Analice el rendimiento y movimiento de sus productos',
+        'icon' => 'fas fa-box',
+        'color' => 'green',
+        'tables' => [
+            'products' => [
+                'label' => 'Productos',
+                'fields' => [
+                    'id' => 'ID del Producto',
+                    'name' => 'Nombre del Producto',
+                    'description' => 'Descripción',
+                    'base_price' => 'Precio Base',
+                    'tax_rate' => 'Tasa de Impuesto',
+                    'unit' => 'Unidad',
+                    'stock' => 'Stock Disponible',
+                    'status' => 'Estado del Producto'
+                ]
+            ],
+            'categories' => [
+                'label' => 'Categoría',
+                'fields' => [
+                    'name' => 'Nombre de Categoría'
+                ]
+            ],
+            'quote_details' => [
+                'label' => 'Detalles de Cotización',
+                'fields' => [
+                    'quantity' => 'Cantidad Cotizada',
+                    'unit_price' => 'Precio Unitario',
+                    'line_total' => 'Total de Línea',
+                    'discount_percent' => 'Descuento (%)',
+                    'line_total_with_tax' => 'Total con Impuestos'
+                ]
+            ]
+        ]
+    ],
+    'clientes' => [
+        'title' => 'Reportes de Clientes',
+        'description' => 'Análisis de actividad y rendimiento de clientes',
+        'icon' => 'fas fa-users',
+        'color' => 'purple',
+        'tables' => [
+            'clients' => [
+                'label' => 'Clientes',
+                'fields' => [
+                    'id' => 'ID del Cliente',
+                    'name' => 'Nombre',
+                    'email' => 'Email',
+                    'phone' => 'Teléfono',
+                    'address' => 'Dirección',
+                    'status' => 'Estado',
+                    'created_at' => 'Fecha de Registro'
+                ]
+            ],
+            'quotes_summary' => [
+                'label' => 'Resumen de Cotizaciones',
+                'fields' => [
+                    'total_quotes' => 'Total de Cotizaciones',
+                    'total_value' => 'Valor Total Cotizado',
+                    'approved_quotes' => 'Cotizaciones Aprobadas',
+                    'approved_value' => 'Valor Aprobado',
+                    'last_quote_date' => 'Última Cotización'
+                ]
+            ]
+        ]
+    ],
+    'ventas' => [
+        'title' => 'Reportes de Ventas',
+        'description' => 'Análisis de rendimiento de ventas y conversiones',
+        'icon' => 'fas fa-chart-line',
+        'color' => 'indigo',
+        'tables' => [
+            'sales_data' => [
+                'label' => 'Datos de Ventas',
+                'fields' => [
+                    'quote_number' => 'Número de Cotización',
+                    'client_name' => 'Cliente',
+                    'seller_name' => 'Vendedor',
+                    'sale_date' => 'Fecha de Venta',
+                    'total_amount' => 'Monto Total',
+                    'profit_margin' => 'Margen de Ganancia',
+                    'payment_status' => 'Estado de Pago'
+                ]
+            ]
+        ]
+    ]
+];
 ?>
 
 <!DOCTYPE html>
@@ -42,11 +156,9 @@ unset($_SESSION['error'], $_SESSION['success']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reportes - <?php echo SYSTEM_NAME; ?></title>
+    <title>Generador de Reportes - <?php echo SYSTEM_NAME; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.0/index.min.js"></script>
 </head>
 <body class="bg-gray-100">
     <!-- Navegación -->
@@ -55,27 +167,11 @@ unset($_SESSION['error'], $_SESSION['success']);
     <div class="container mx-auto px-4 py-8">
         <!-- Encabezado -->
         <div class="mb-8">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900 mb-2">
-                        <i class="fas fa-chart-bar text-blue-600"></i>
-                        Centro de Reportes
-                    </h1>
-                    <p class="text-gray-600">Análisis y estadísticas del sistema CRM</p>
-                </div>
-                
-                <!-- Selector de Reporte -->
-                <div class="mt-4 md:mt-0">
-                    <select id="reportSelector" class="form-select rounded-md border-gray-300 shadow-sm">
-                        <option value="dashboard" <?php echo $reportType === 'dashboard' ? 'selected' : ''; ?>>Dashboard General</option>
-                        <option value="quotes" <?php echo $reportType === 'quotes' ? 'selected' : ''; ?>>Reporte de Cotizaciones</option>
-                        <option value="clients" <?php echo $reportType === 'clients' ? 'selected' : ''; ?>>Reporte de Clientes</option>
-                        <option value="products" <?php echo $reportType === 'products' ? 'selected' : ''; ?>>Reporte de Productos</option>
-                        <option value="inventory" <?php echo $reportType === 'inventory' ? 'selected' : ''; ?>>Reporte de Inventario</option>
-                        <option value="financial" <?php echo $reportType === 'financial' ? 'selected' : ''; ?>>Reporte Financiero</option>
-                    </select>
-                </div>
-            </div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                <i class="fas fa-chart-bar text-blue-600"></i>
+                Generador de Reportes Dinamicos
+            </h1>
+            <p class="text-gray-600">Seleccione los campos que necesita y genere reportes personalizados en CSV</p>
         </div>
 
         <!-- Mensajes -->
@@ -93,193 +189,319 @@ unset($_SESSION['error'], $_SESSION['success']);
             </div>
         <?php endif; ?>
 
-        <!-- Filtros de Fecha (para reportes que los necesiten) -->
-        <?php if (in_array($reportType, ['quotes', 'products', 'financial'])): ?>
-            <div class="bg-white rounded-lg shadow mb-6 p-6">
-                <h3 class="text-lg font-semibold mb-4">
-                    <i class="fas fa-filter text-gray-600"></i>
-                    Filtros de Fecha
-                </h3>
-                
-                <form method="GET" action="reportController.php" class="flex flex-wrap items-end gap-4">
-                    <input type="hidden" name="action" value="<?php echo Security::escape($reportType); ?>">
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
-                        <input type="date" name="date_from" 
-                               value="<?php echo Security::escape($reportData['date_from'] ?? ''); ?>"
-                               class="form-input rounded-md border-gray-300 shadow-sm">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
-                        <input type="date" name="date_to" 
-                               value="<?php echo Security::escape($reportData['date_to'] ?? ''); ?>"
-                               class="form-input rounded-md border-gray-300 shadow-sm">
-                    </div>
-                    
-                    <div>
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
-                            <i class="fas fa-search mr-2"></i>Filtrar
-                        </button>
-                    </div>
-                    
-                    <div>
-                        <a href="reportView.php?action=<?php echo Security::escape($reportType); ?>" 
-                           class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md">
-                            <i class="fas fa-times mr-2"></i>Limpiar
-                        </a>
-                    </div>
-                </form>
-            </div>
-        <?php endif; ?>
-
-        <!-- Contenido del Reporte -->
-        <div id="reportContent">
-            <?php
-            switch ($reportType) {
-                case 'dashboard':
-                    include __DIR__ . '/views/dashboard.php';
-                    break;
-                case 'quotes':
-                    include __DIR__ . '/views/quotes_report.php';
-                    break;
-                case 'clients':
-                    include __DIR__ . '/views/clients_report.php';
-                    break;
-                case 'products':
-                    include __DIR__ . '/views/products_report.php';
-                    break;
-                case 'inventory':
-                    include __DIR__ . '/views/inventory_report.php';
-                    break;
-                case 'financial':
-                    include __DIR__ . '/views/financial_report.php';
-                    break;
-                default:
-                    echo '<div class="bg-white rounded-lg shadow p-6">';
-                    echo '<p class="text-gray-600">Seleccione un tipo de reporte para ver los datos.</p>';
-                    echo '</div>';
-            }
-            ?>
-        </div>
-
-        <!-- Modal de Exportación -->
-        <div id="exportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-                    <div class="px-6 py-4 border-b">
-                        <h3 class="text-lg font-semibold text-gray-900">Exportar Reporte</h3>
-                    </div>
-                    
-                    <form id="exportForm" method="POST" action="reportController.php?action=export">
-                        <input type="hidden" name="csrf_token" value="<?php echo $session->getCsrfToken(); ?>">
-                        <input type="hidden" name="report_type" id="exportReportType" value="<?php echo Security::escape($reportType); ?>">
-                        <input type="hidden" name="date_from" value="<?php echo Security::escape($reportData['date_from'] ?? ''); ?>">
-                        <input type="hidden" name="date_to" value="<?php echo Security::escape($reportData['date_to'] ?? ''); ?>">
-                        
-                        <div class="px-6 py-4">
-                            <div class="mb-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Formato de Exportación</label>
-                                <select name="format" class="form-select w-full rounded-md border-gray-300">
-                                    <option value="csv">CSV (Excel)</option>
-                                    <option value="pdf" disabled>PDF (Próximamente)</option>
-                                    <option value="excel" disabled>Excel (Próximamente)</option>
-                                </select>
+        <!-- Selector de Tipo de Reporte -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <?php foreach ($reportConfig as $key => $config): ?>
+                <div class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer report-type-card" 
+                     data-type="<?php echo $key; ?>">
+                    <div class="p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="p-3 rounded-full bg-<?php echo $config['color']; ?>-100 text-<?php echo $config['color']; ?>-600">
+                                <i class="<?php echo $config['icon']; ?> text-2xl"></i>
                             </div>
                         </div>
-                        
-                        <div class="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
-                            <button type="button" onclick="closeExportModal()" 
-                                    class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                                Cancelar
-                            </button>
-                            <button type="submit" 
-                                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                                <i class="fas fa-download mr-2"></i>Exportar
-                            </button>
-                        </div>
-                    </form>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                            <?php echo $config['title']; ?>
+                        </h3>
+                        <p class="text-gray-600 text-sm">
+                            <?php echo $config['description']; ?>
+                        </p>
+                    </div>
                 </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Formulario de Generación de Reportes -->
+        <div id="reportForm" class="bg-white rounded-lg shadow p-6 hidden">
+            <form id="customReportForm" method="POST" action="generateReport.php">
+                <input type="hidden" name="csrf_token" value="<?php echo $session->getCsrfToken(); ?>">
+                <input type="hidden" name="report_type" id="selectedReportType">
+
+                <!-- Encabezado del Formulario -->
+                <div class="mb-6 border-b pb-4">
+                    <h2 class="text-xl font-bold text-gray-900" id="formTitle">Configurar Reporte</h2>
+                    <p class="text-gray-600" id="formDescription">Seleccione los campos que desea incluir en su reporte</p>
+                </div>
+
+                <!-- Filtros de Fecha -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-calendar mr-1"></i>Fecha Desde
+                        </label>
+                        <input type="date" name="date_from" id="dateFrom" 
+                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-calendar mr-1"></i>Fecha Hasta
+                        </label>
+                        <input type="date" name="date_to" id="dateTo" 
+                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-list mr-1"></i>Límite de Registros
+                        </label>
+                        <select name="limit" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Sin límite</option>
+                            <option value="100">100 registros</option>
+                            <option value="500">500 registros</option>
+                            <option value="1000">1,000 registros</option>
+                            <option value="5000">5,000 registros</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Selección de Campos -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" id="fieldsContainer">
+                    <!-- Los campos se cargarán dinámicamente aquí -->
+                </div>
+
+                <!-- Acciones -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-6 border-t">
+                    <div class="flex items-center space-x-4">
+                        <button type="button" id="selectAllBtn" 
+                                class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <i class="fas fa-check-square mr-1"></i>Seleccionar Todo
+                        </button>
+                        <button type="button" id="clearAllBtn" 
+                                class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                            <i class="fas fa-square mr-1"></i>Limpiar Selección
+                        </button>
+                        <span id="selectedCount" class="text-sm text-gray-500">0 campos seleccionados</span>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="hideReportForm()" 
+                                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-times mr-2"></i>Cancelar
+                        </button>
+                        <button type="button" id="previewBtn" 
+                                class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                            <i class="fas fa-eye mr-2"></i>Vista Previa
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                            <i class="fas fa-download mr-2"></i>Generar CSV
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Vista Previa -->
+        <div id="previewContainer" class="bg-white rounded-lg shadow p-6 hidden mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-eye text-blue-600 mr-2"></i>Vista Previa del Reporte
+                </h3>
+                <button type="button" onclick="hidePreview()" 
+                        class="text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="previewTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <!-- Headers dinámicos -->
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <!-- Datos de ejemplo -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 text-sm text-gray-600">
+                <i class="fas fa-info-circle mr-1"></i>
+                Mostrando los primeros 5 registros como ejemplo. El archivo CSV contendrá todos los datos según sus filtros.
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
     <script>
-        // Variables globales
-        const reportData = <?php echo json_encode($reportData); ?>;
-        const currentReportType = '<?php echo Security::escape($reportType); ?>';
-        
-        // Cambiar tipo de reporte
-        document.getElementById('reportSelector').addEventListener('change', function() {
-            const reportType = this.value;
-            window.location.href = `reportView.php?action=${reportType}`;
+        const reportConfig = <?php echo json_encode($reportConfig); ?>;
+        let selectedFields = [];
+
+        // Manejar selección de tipo de reporte
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.report-type-card');
+            cards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const reportType = this.dataset.type;
+                    showReportForm(reportType);
+                });
+            });
+
+            // Manejar botones de selección
+            document.getElementById('selectAllBtn').addEventListener('click', selectAllFields);
+            document.getElementById('clearAllBtn').addEventListener('click', clearAllFields);
+            document.getElementById('previewBtn').addEventListener('click', showPreview);
         });
 
-        // Funciones del modal de exportación
-        function showExportModal(reportType = null) {
-            const modal = document.getElementById('exportModal');
-            const reportTypeInput = document.getElementById('exportReportType');
-            
-            if (reportType) {
-                reportTypeInput.value = reportType;
-            }
-            
-            modal.classList.remove('hidden');
+        function showReportForm(reportType) {
+            const config = reportConfig[reportType];
+            if (!config) return;
+
+            // Mostrar formulario
+            document.getElementById('reportForm').classList.remove('hidden');
+            document.getElementById('selectedReportType').value = reportType;
+            document.getElementById('formTitle').textContent = config.title;
+            document.getElementById('formDescription').textContent = config.description;
+
+            // Generar campos
+            generateFieldsHtml(config.tables);
+
+            // Scroll al formulario
+            document.getElementById('reportForm').scrollIntoView({ behavior: 'smooth' });
         }
 
-        function closeExportModal() {
-            document.getElementById('exportModal').classList.add('hidden');
+        function hideReportForm() {
+            document.getElementById('reportForm').classList.add('hidden');
+            document.getElementById('previewContainer').classList.add('hidden');
+            selectedFields = [];
+            updateSelectedCount();
         }
 
-        // Cerrar modal al hacer clic fuera
-        document.getElementById('exportModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeExportModal();
-            }
-        });
+        function generateFieldsHtml(tables) {
+            const container = document.getElementById('fieldsContainer');
+            container.innerHTML = '';
 
-        // Utilidades para formatear números
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('es-ES', {
-                style: 'currency',
-                currency: '<?php echo DEFAULT_CURRENCY; ?>'
-            }).format(amount);
-        }
-
-        function formatNumber(number) {
-            return new Intl.NumberFormat('es-ES').format(number);
-        }
-
-        function formatPercentage(percentage) {
-            return new Intl.NumberFormat('es-ES', {
-                style: 'percent',
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 1
-            }).format(percentage / 100);
-        }
-
-        // Función para crear gráficos
-        function createChart(canvasId, type, data, options = {}) {
-            const ctx = document.getElementById(canvasId);
-            if (!ctx) return null;
-
-            return new Chart(ctx, {
-                type: type,
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    ...options
-                }
+            Object.keys(tables).forEach(tableName => {
+                const table = tables[tableName];
+                
+                const tableDiv = document.createElement('div');
+                tableDiv.className = 'bg-gray-50 rounded-lg p-4';
+                
+                tableDiv.innerHTML = `
+                    <h4 class="font-semibold text-gray-900 mb-3">
+                        <i class="fas fa-table mr-2"></i>${table.label}
+                    </h4>
+                    <div class="space-y-2">
+                        ${Object.keys(table.fields).map(fieldName => `
+                            <label class="flex items-center">
+                                <input type="checkbox" name="fields[]" value="${tableName}.${fieldName}" 
+                                       class="field-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                       onchange="updateSelectedFields()">
+                                <span class="ml-2 text-sm text-gray-700">${table.fields[fieldName]}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                `;
+                
+                container.appendChild(tableDiv);
             });
         }
 
-        // Inicializar cuando el DOM esté listo
-        document.addEventListener('DOMContentLoaded', function() {
-            // Aquí se pueden agregar inicializaciones específicas por tipo de reporte
-            console.log('Reporte cargado:', currentReportType);
+        function updateSelectedFields() {
+            const checkboxes = document.querySelectorAll('.field-checkbox:checked');
+            selectedFields = Array.from(checkboxes).map(cb => cb.value);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = `${selectedFields.length} campos seleccionados`;
+        }
+
+        function selectAllFields() {
+            const checkboxes = document.querySelectorAll('.field-checkbox');
+            checkboxes.forEach(cb => cb.checked = true);
+            updateSelectedFields();
+        }
+
+        function clearAllFields() {
+            const checkboxes = document.querySelectorAll('.field-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSelectedFields();
+        }
+
+        function showPreview() {
+            if (selectedFields.length === 0) {
+                alert('Por favor seleccione al menos un campo para la vista previa.');
+                return;
+            }
+
+            // Simular datos para vista previa
+            const headers = selectedFields.map(field => {
+                const parts = field.split('.');
+                const tableName = parts[0];
+                const fieldName = parts[1];
+                
+                // Buscar el label del campo
+                const reportType = document.getElementById('selectedReportType').value;
+                const config = reportConfig[reportType];
+                
+                if (config.tables[tableName] && config.tables[tableName].fields[fieldName]) {
+                    return config.tables[tableName].fields[fieldName];
+                }
+                return fieldName;
+            });
+
+            // Generar datos de ejemplo
+            const sampleData = [];
+            for (let i = 0; i < 5; i++) {
+                const row = selectedFields.map(field => {
+                    const fieldName = field.split('.')[1];
+                    
+                    // Generar datos de ejemplo según el tipo de campo
+                    if (fieldName.includes('date') || fieldName.includes('created_at')) {
+                        return new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    } else if (fieldName.includes('amount') || fieldName.includes('price') || fieldName.includes('total')) {
+                        return '$' + (Math.random() * 1000).toFixed(2);
+                    } else if (fieldName.includes('email')) {
+                        return `ejemplo${i + 1}@empresa.com`;
+                    } else if (fieldName.includes('phone')) {
+                        return `+34 ${Math.floor(Math.random() * 900000000) + 100000000}`;
+                    } else if (fieldName.includes('status')) {
+                        const statuses = ['Activo', 'Inactivo', 'Pendiente', 'Aprobado'];
+                        return statuses[Math.floor(Math.random() * statuses.length)];
+                    } else if (fieldName.includes('name')) {
+                        const names = ['Empresa ABC', 'Cliente XYZ', 'Producto 123', 'Vendedor'];
+                        return names[Math.floor(Math.random() * names.length)] + ' ' + (i + 1);
+                    } else if (fieldName.includes('id')) {
+                        return Math.floor(Math.random() * 1000) + 1;
+                    } else {
+                        return `Dato ${i + 1}`;
+                    }
+                });
+                sampleData.push(row);
+            }
+
+            // Mostrar tabla de vista previa
+            const table = document.getElementById('previewTable');
+            
+            // Headers
+            const thead = table.querySelector('thead');
+            thead.innerHTML = `
+                <tr>
+                    ${headers.map(header => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`).join('')}
+                </tr>
+            `;
+
+            // Datos
+            const tbody = table.querySelector('tbody');
+            tbody.innerHTML = sampleData.map(row => `
+                <tr>
+                    ${row.map(cell => `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${cell}</td>`).join('')}
+                </tr>
+            `).join('');
+
+            // Mostrar contenedor de vista previa
+            document.getElementById('previewContainer').classList.remove('hidden');
+            document.getElementById('previewContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hidePreview() {
+            document.getElementById('previewContainer').classList.add('hidden');
+        }
+
+        // Validar formulario antes de enviar
+        document.getElementById('customReportForm').addEventListener('submit', function(e) {
+            if (selectedFields.length === 0) {
+                e.preventDefault();
+                alert('Por favor seleccione al menos un campo para generar el reporte.');
+                return false;
+            }
         });
     </script>
 </body>
