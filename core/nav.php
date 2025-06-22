@@ -6,6 +6,8 @@
 $isLoggedIn = false;
 $userRole = null;
 $userName = '';
+$isAdmin = false;
+$currentUserRole = null;
 
 try {
     if (class_exists('Session')) {
@@ -13,8 +15,18 @@ try {
         $isLoggedIn = $session->isLoggedIn();
         
         if ($isLoggedIn) {
-            $userRole = $session->hasRole(ROLE_ADMIN) ? 'admin' : 'seller';
+            // Obtener datos del usuario desde la sesión
+            $currentUserRole = $session->getUserRole();
+            $isAdmin = $session->hasRole(ROLE_ADMIN);
             $userName = $session->getUserName() ?? 'Usuario';
+            
+            // Determinar texto del rol para mostrar
+            $userRole = $isAdmin ? 'admin' : 'seller';
+            
+            // Debug para verificar (puedes comentar estas líneas en producción)
+            error_log("Nav Debug - Current User Role: " . $currentUserRole);
+            error_log("Nav Debug - Is Admin: " . ($isAdmin ? 'YES' : 'NO'));
+            error_log("Nav Debug - ROLE_ADMIN constant: " . ROLE_ADMIN);
         }
     }
 } catch (Exception $e) {
@@ -90,7 +102,7 @@ if (!$isLoggedIn) {
                     </a>
                     
                     <!-- Configuración (Solo Admin) -->
-                    <?php if ($userRole === 'admin'): ?>
+                    <?php if ($isAdmin): ?>
                         <a href="<?php echo BASE_URL; ?>/modules/settings/settingsView.php" 
                            class="px-3 py-2 rounded-md text-sm font-medium transition-colors <?php echo isActive('', 'settings'); ?>">
                             Config
@@ -112,7 +124,7 @@ if (!$isLoggedIn) {
                     <span class="text-sm">
                         <?php echo Security::escape($userName); ?>
                         <span class="text-blue-200 text-xs">
-                            (<?php echo $userRole === 'admin' ? 'Admin' : 'Vendedor'; ?>)
+                            (<?php echo $isAdmin ? 'Admin' : 'Vendedor'; ?>)
                         </span>
                     </span>
                 </div>
@@ -142,7 +154,7 @@ if (!$isLoggedIn) {
                 <div class="px-3 py-2 text-white border-b border-blue-500 mb-2">
                     <div class="font-medium"><?php echo Security::escape($userName); ?></div>
                     <div class="text-blue-200 text-sm">
-                        <?php echo $userRole === 'admin' ? 'Administrador' : 'Vendedor'; ?>
+                        <?php echo $isAdmin ? 'Administrador' : 'Vendedor'; ?>
                     </div>
                 </div>
                 
@@ -172,7 +184,8 @@ if (!$isLoggedIn) {
                     Reportes
                 </a>
                 
-                <?php if ($userRole === 'admin'): ?>
+                <!-- Opciones de Admin en Móvil -->
+                <?php if ($isAdmin): ?>
                     <a href="<?php echo BASE_URL; ?>/modules/settings/settingsView.php" 
                        class="block px-3 py-2 rounded-md text-white hover:bg-blue-700">
                         Configuración

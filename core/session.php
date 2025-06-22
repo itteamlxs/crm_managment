@@ -14,6 +14,8 @@ try {
 class Session {
     private $timeout;
     private $userName = null;
+    private $userId = null;
+    private $userRole = null;
 
     public function __construct() {
         // Si hay una sesión activa, NO destruirla para permitir continuidad
@@ -21,6 +23,7 @@ class Session {
             $this->timeout = 1800;
             $this->regenerateIdIfNeeded();
             $this->checkTimeout();
+            $this->checkSession(); // Cargar datos de sesión
             // Generar token CSRF al inicio de la sesión si no existe
             if (!isset($_SESSION['csrf_token'])) {
                 $this->generateCsrfToken();
@@ -48,6 +51,7 @@ class Session {
         $this->timeout = 1800; // Valor fijo para timeout
         $this->regenerateIdIfNeeded();
         $this->checkTimeout();
+        $this->checkSession(); // Cargar datos de sesión
 
         // Generar token CSRF al inicio de la sesión si no existe
         if (!isset($_SESSION['csrf_token'])) {
@@ -77,70 +81,71 @@ class Session {
         $_SESSION['last_activity'] = time();
     }
 
+    // Cargar datos de sesión en las propiedades de la clase
+    private function checkSession() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (isset($_SESSION['user_id']) && isset($_SESSION['user_role'])) {
+            $this->userId = $_SESSION['user_id'];
+            $this->userRole = $_SESSION['user_role'];
+            $this->userName = $_SESSION['user_name'] ?? 'Usuario';
+            return true;
+        }
+        
+        return false;
+    }
+
     // Iniciar sesión de usuario
-
     public function login($userId, $userRole, $userName = 'Usuario') {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    
-    $_SESSION['user_id'] = $userId;
-    $_SESSION['user_role'] = $userRole;
-    $_SESSION['user_name'] = $userName;
-    $_SESSION['login_time'] = time();
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    
-    $this->userId = $userId;
-    $this->userRole = $userRole;
-    $this->userName = $userName;
-    
-    // Regenerar ID de sesión por seguridad
-    session_regenerate_id(true);
-    
-    return true;
-}
-
-// Agregar el método getUserName()
-public function getUserName() {
-    if ($this->userName) {
-        return $this->userName;
-    }
-    
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    
-    return $_SESSION['user_name'] ?? 'Usuario';
-}
-
-// Modificar el método checkSession() para cargar el nombre del usuario
-private function checkSession() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-    
-    if (isset($_SESSION['user_id']) && isset($_SESSION['user_role'])) {
-        $this->userId = $_SESSION['user_id'];
-        $this->userRole = $_SESSION['user_role'];
-        $this->userName = $_SESSION['user_name'] ?? 'Usuario';
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        $_SESSION['user_id'] = $userId;
+        $_SESSION['user_role'] = $userRole;  // CORREGIDO: usar user_role consistentemente
+        $_SESSION['user_name'] = $userName;
+        $_SESSION['login_time'] = time();
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        
+        // Actualizar propiedades de la clase
+        $this->userId = $userId;
+        $this->userRole = $userRole;
+        $this->userName = $userName;
+        
+        // Regenerar ID de sesión por seguridad
+        session_regenerate_id(true);
+        
         return true;
     }
-    
-    return false;
-}
 
-
-
-
+    // Obtener el nombre del usuario
+    public function getUserName() {
+        if ($this->userName) {
+            return $this->userName;
+        }
+        
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        return $_SESSION['user_name'] ?? 'Usuario';
+    }
 
     // Verificar si el usuario está autenticado
     public function isLoggedIn() {
         return isset($_SESSION['user_id']) && $_SESSION['user_id'] > 0;
     }
 
-    // Verificar si el usuario tiene un rol específico
+    // ✅ CORRECCIÓN PRINCIPAL: Verificar si el usuario tiene un rol específico
     public function hasRole($role) {
-        return $this->isLoggedIn() && isset($_SESSION['role']) && $_SESSION['role'] === (int)$role;
+        return $this->isLoggedIn() && isset($_SESSION['user_role']) && $_SESSION['user_role'] === (int)$role;
+    }
+
+    // Obtener el rol actual del usuario
+    public function getUserRole() {
+        return $this->isLoggedIn() ? $_SESSION['user_role'] : null;
     }
 
     // Obtener ID del usuario
