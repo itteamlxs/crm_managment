@@ -1,5 +1,7 @@
 <?php
-// Modelo para gestionar configuraciones del sistema CRM
+// Modelo actualizado con debug para detectar el problema del slogan
+// Reemplaza temporalmente tu settingsModel.php con esta versión
+
 require_once dirname(__DIR__, 2) . '/core/db.php';
 require_once dirname(__DIR__, 2) . '/core/security.php';
 require_once dirname(__DIR__, 2) . '/config/constants.php';
@@ -23,6 +25,7 @@ class SettingsModel {
             $query = "CREATE TABLE IF NOT EXISTS settings (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 company_name VARCHAR(255) NOT NULL DEFAULT 'Mi Empresa CRM',
+                company_slogan TEXT,
                 company_address TEXT,
                 company_phone VARCHAR(50),
                 company_email VARCHAR(255),
@@ -57,12 +60,33 @@ class SettingsModel {
             
             $this->db->execute($query);
             
+            // Verificar si existe la columna company_slogan, si no, agregarla
+            $this->addSloganColumnIfNotExists();
+            
             // Insertar configuración por defecto si no existe
             $this->createDefaultSettings();
             
         } catch (Exception $e) {
             error_log("Error creating settings table: " . $e->getMessage());
             throw new Exception('Error al inicializar tabla de configuraciones.');
+        }
+    }
+
+    // Agregar columna de slogan si no existe
+    private function addSloganColumnIfNotExists() {
+        try {
+            // Verificar si la columna existe
+            $checkQuery = "SHOW COLUMNS FROM settings LIKE 'company_slogan'";
+            $result = $this->db->select($checkQuery);
+            
+            // Si no existe, agregarla
+            if (empty($result)) {
+                $alterQuery = "ALTER TABLE settings ADD COLUMN company_slogan TEXT NULL AFTER company_name";
+                $this->db->execute($alterQuery);
+                error_log("Added company_slogan column to settings table");
+            }
+        } catch (Exception $e) {
+            error_log("Error checking/adding company_slogan column: " . $e->getMessage());
         }
     }
 
@@ -74,12 +98,13 @@ class SettingsModel {
             
             if ($result[0]['count'] == 0) {
                 $query = "INSERT INTO settings (
-                    company_name, language, timezone, currency_code, currency_symbol,
+                    company_name, company_slogan, language, timezone, currency_code, currency_symbol,
                     tax_rate, tax_name, theme, date_format
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 
                 $params = [
                     'Mi Empresa CRM',
+                    'Tu socio confiable en crecimiento empresarial',
                     'es',
                     'America/Mexico_City', 
                     'USD',
@@ -120,18 +145,46 @@ class SettingsModel {
         }
     }
 
-    // Actualizar configuración general
+    // Actualizar configuración general - VERSION CON DEBUG DETALLADO
     public function updateGeneral($data) {
+        // DEBUG: Escribir a un archivo de log lo que llega
+        $debugFile = dirname(__DIR__, 2) . '/settings_debug.log';
+        
+        $debugData = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'received_data' => $data,
+            'post_data' => $_POST
+        ];
+        
+        file_put_contents($debugFile, "=== UPDATEGENERAL DEBUG ===\n" . print_r($debugData, true) . "\n\n", FILE_APPEND);
+        
         // Validar datos
         $companyName = Security::sanitize($data['company_name'] ?? '', 'string');
+        $companySlogan = Security::sanitize($data['company_slogan'] ?? '', 'string');
         $companyAddress = Security::sanitize($data['company_address'] ?? '', 'string');
         $companyPhone = Security::sanitize($data['company_phone'] ?? '', 'string');
         $companyEmail = Security::sanitize($data['company_email'] ?? '', 'email');
         $companyWebsite = Security::sanitize($data['company_website'] ?? '', 'string');
 
+        // DEBUG: Log después de sanitizar
+        $sanitizedData = [
+            'company_name' => $companyName,
+            'company_slogan' => $companySlogan,
+            'company_address' => $companyAddress,
+            'company_phone' => $companyPhone,
+            'company_email' => $companyEmail,
+            'company_website' => $companyWebsite
+        ];
+        
+        file_put_contents($debugFile, "SANITIZED DATA:\n" . print_r($sanitizedData, true) . "\n\n", FILE_APPEND);
+
         // Validaciones específicas
         if (strlen($companyName) < 2 || strlen($companyName) > 255) {
             throw new Exception('El nombre de la empresa debe tener entre 2 y 255 caracteres.');
+        }
+
+        if ($companySlogan && strlen($companySlogan) > 500) {
+            throw new Exception('El slogan no puede exceder 500 caracteres.');
         }
 
         if ($companyEmail && !filter_var($companyEmail, FILTER_VALIDATE_EMAIL)) {
@@ -148,21 +201,51 @@ class SettingsModel {
         }
 
         try {
+            // Verificar primero si la columna company_slogan existe
+            $checkColumn = "SHOW COLUMNS FROM settings LIKE 'company_slogan'";
+            $columnExists = $this->db->select($checkColumn);
+            
+            if (empty($columnExists)) {
+                // Si no existe la columna, agregarla
+                $addColumn = "ALTER TABLE settings ADD COLUMN company_slogan TEXT NULL AFTER company_name";
+                $this->db->execute($addColumn);
+                file_put_contents($debugFile, "COLUMN ADDED AUTOMATICALLY\n\n", FILE_APPEND);
+            }
+            
             $query = "UPDATE settings SET 
-                      company_name = ?, company_address = ?, company_phone = ?, 
-                      company_email = ?, company_website = ?, updated_at = NOW() 
+                      company_name = ?, 
+                      company_slogan = ?, 
+                      company_address = ?, 
+                      company_phone = ?, 
+                      company_email = ?, 
+                      company_website = ?, 
+                      updated_at = NOW() 
                       WHERE id = 1";
             
-            $params = [$companyName, $companyAddress, $companyPhone, $companyEmail, $companyWebsite];
+            $params = [$companyName, $companySlogan, $companyAddress, $companyPhone, $companyEmail, $companyWebsite];
             
-            return $this->db->execute($query, $params);
+            // DEBUG: Log de la consulta y parámetros
+            file_put_contents($debugFile, "QUERY: $query\n", FILE_APPEND);
+            file_put_contents($debugFile, "PARAMS: " . print_r($params, true) . "\n", FILE_APPEND);
+            
+            $result = $this->db->execute($query, $params);
+            
+            // DEBUG: Verificar que se guardó
+            $verification = $this->db->select("SELECT company_name, company_slogan FROM settings WHERE id = 1");
+            file_put_contents($debugFile, "VERIFICATION RESULT: " . print_r($verification, true) . "\n", FILE_APPEND);
+            file_put_contents($debugFile, "=====================================\n\n", FILE_APPEND);
+            
+            return $result;
+            
         } catch (Exception $e) {
             error_log("Error updating general settings: " . $e->getMessage());
-            throw new Exception('Error al actualizar configuración general.');
+            file_put_contents($debugFile, "ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+            file_put_contents($debugFile, "TRACE: " . $e->getTraceAsString() . "\n", FILE_APPEND);
+            throw new Exception('Error al actualizar configuración general: ' . $e->getMessage());
         }
     }
 
-    // Actualizar configuración regional
+    // Resto de métodos sin cambios...
     public function updateRegional($data) {
         $language = Security::sanitize($data['language'] ?? 'es', 'string');
         $timezone = Security::sanitize($data['timezone'] ?? 'America/Mexico_City', 'string');
@@ -170,7 +253,6 @@ class SettingsModel {
         $currencySymbol = Security::sanitize($data['currency_symbol'] ?? '$', 'string');
         $dateFormat = Security::sanitize($data['date_format'] ?? 'd/m/Y', 'string');
 
-        // Validaciones
         if (!in_array($language, ['es', 'en'])) {
             throw new Exception('Idioma no válido.');
         }
@@ -198,12 +280,10 @@ class SettingsModel {
         }
     }
 
-    // Actualizar configuración de impuestos
     public function updateTax($data) {
         $taxRate = (float)($data['tax_rate'] ?? 0);
         $taxName = Security::sanitize($data['tax_name'] ?? 'IVA', 'string');
 
-        // Validaciones
         if ($taxRate < 0 || $taxRate > 100) {
             throw new Exception('La tasa de impuesto debe estar entre 0% y 100%.');
         }
@@ -221,17 +301,15 @@ class SettingsModel {
         }
     }
 
-    // Actualizar configuración de correo
     public function updateEmail($data) {
         $smtpHost = Security::sanitize($data['smtp_host'] ?? '', 'string');
         $smtpPort = (int)($data['smtp_port'] ?? 587);
         $smtpUsername = Security::sanitize($data['smtp_username'] ?? '', 'string');
-        $smtpPassword = $data['smtp_password'] ?? ''; // No sanitizar passwords
+        $smtpPassword = $data['smtp_password'] ?? '';
         $smtpSecurity = Security::sanitize($data['smtp_security'] ?? 'tls', 'string');
         $smtpFromEmail = Security::sanitize($data['smtp_from_email'] ?? '', 'email');
         $smtpFromName = Security::sanitize($data['smtp_from_name'] ?? '', 'string');
 
-        // Validaciones
         if ($smtpFromEmail && !filter_var($smtpFromEmail, FILTER_VALIDATE_EMAIL)) {
             throw new Exception('Email remitente no válido.');
         }
@@ -262,7 +340,6 @@ class SettingsModel {
         }
     }
 
-    // Actualizar tema
     public function updateTheme($theme) {
         $theme = Security::sanitize($theme, 'string');
         
@@ -279,7 +356,6 @@ class SettingsModel {
         }
     }
 
-    // Actualizar logo de la empresa
     public function updateLogo($logoPath) {
         $logoPath = Security::sanitize($logoPath, 'string');
 
@@ -292,11 +368,12 @@ class SettingsModel {
         }
     }
 
-    // Obtener configuraciones por defecto
+    // Obtener configuraciones por defecto - ACTUALIZADA CON SLOGAN
     private function getDefaultSettings() {
         return [
             'id' => 1,
             'company_name' => 'Mi Empresa CRM',
+            'company_slogan' => 'Tu socio confiable en crecimiento empresarial',
             'company_address' => '',
             'company_phone' => '',
             'company_email' => '',
@@ -322,7 +399,7 @@ class SettingsModel {
         ];
     }
 
-    // Obtener zonas horarias disponibles
+    // Métodos adicionales sin cambios...
     public function getTimezones() {
         $timezones = [];
         $regions = [
@@ -343,7 +420,6 @@ class SettingsModel {
         return $timezones;
     }
 
-    // Obtener monedas comunes
     public function getCurrencies() {
         return [
             'USD' => ['name' => 'Dólar Estadounidense', 'symbol' => '$'],
@@ -363,7 +439,6 @@ class SettingsModel {
         ];
     }
 
-    // Probar conexión de correo
     public function testEmailConnection($config = null) {
         try {
             if (!$config) {
@@ -379,13 +454,10 @@ class SettingsModel {
                 ];
             }
 
-            // Validar configuración mínima
             if (empty($config['host']) || empty($config['from_email'])) {
                 throw new Exception('Configuración de correo incompleta.');
             }
 
-            // Aquí implementarías la prueba real de conexión SMTP
-            // Por ahora, solo validamos que los datos estén completos
             return [
                 'success' => true,
                 'message' => 'Configuración de correo válida.'
@@ -399,12 +471,9 @@ class SettingsModel {
         }
     }
 
-    // Exportar configuración completa
     public function exportSettings() {
         try {
             $settings = $this->getAll();
-            
-            // Remover datos sensibles para exportación
             unset($settings['smtp_password']);
             
             return [
@@ -421,10 +490,8 @@ class SettingsModel {
         }
     }
 
-    // Importar configuración (sin contraseñas)
     public function importSettings($data) {
         try {
-            // Validar estructura de datos
             $requiredFields = ['company_name', 'language', 'timezone', 'currency_code'];
             foreach ($requiredFields as $field) {
                 if (!isset($data[$field])) {
@@ -432,7 +499,6 @@ class SettingsModel {
                 }
             }
 
-            // Actualizar configuraciones por secciones
             $this->updateGeneral($data);
             $this->updateRegional($data);
             $this->updateTax($data);

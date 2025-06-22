@@ -4,13 +4,25 @@ require_once dirname(__DIR__, 2) . '/core/db.php';
 require_once dirname(__DIR__, 2) . '/core/security.php';
 require_once dirname(__DIR__, 2) . '/config/constants.php';
 
-// Estados de cotización
-define('QUOTE_STATUS_DRAFT', 1);     // Borrador
-define('QUOTE_STATUS_SENT', 2);      // Enviada
-define('QUOTE_STATUS_APPROVED', 3);  // Aprobada
-define('QUOTE_STATUS_REJECTED', 4);  // Rechazada
-define('QUOTE_STATUS_EXPIRED', 5);   // Vencida
-define('QUOTE_STATUS_CANCELLED', 6); // Cancelada
+// Estados de cotización - Solo definir si no están ya definidas
+if (!defined('QUOTE_STATUS_DRAFT')) {
+    define('QUOTE_STATUS_DRAFT', 1);     // Borrador
+}
+if (!defined('QUOTE_STATUS_SENT')) {
+    define('QUOTE_STATUS_SENT', 2);      // Enviada
+}
+if (!defined('QUOTE_STATUS_APPROVED')) {
+    define('QUOTE_STATUS_APPROVED', 3);  // Aprobada
+}
+if (!defined('QUOTE_STATUS_REJECTED')) {
+    define('QUOTE_STATUS_REJECTED', 4);  // Rechazada
+}
+if (!defined('QUOTE_STATUS_EXPIRED')) {
+    define('QUOTE_STATUS_EXPIRED', 5);   // Vencida
+}
+if (!defined('QUOTE_STATUS_CANCELLED')) {
+    define('QUOTE_STATUS_CANCELLED', 6); // Cancelada
+}
 
 class QuoteModel {
     private $db;

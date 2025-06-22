@@ -1,5 +1,5 @@
 <?php
-// Controlador para gestionar autenticación y usuarios
+// Controlador para gestionar autenticación y usuarios - CORREGIDO
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -99,6 +99,11 @@ class UserController {
     // Verificar si está autenticado
     public function isAuthenticated() {
         return $this->session->isLoggedIn();
+    }
+
+    // Verificar si es administrador
+    public function isAdmin() {
+        return $this->session->hasRole(ROLE_ADMIN);
     }
 
     // Procesar logout
