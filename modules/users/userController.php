@@ -30,66 +30,73 @@ class UserController {
     }
 
     // Procesar login - MÉTODO PRINCIPAL CORREGIDO
+    
     public function login() {
-        // Solo procesar si es POST
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return ['error' => ''];
-        }
-
-        try {
-            // Validar token CSRF PRIMERO
-            $csrfToken = $_POST['csrf_token'] ?? '';
-            if (!$this->session->validateCsrfToken($csrfToken)) {
-                error_log("CSRF validation failed for login attempt");
-                return ['error' => 'Error de seguridad: Token CSRF inválido. Intente nuevamente.'];
-            }
-
-            // Obtener y validar datos del formulario
-            $username = trim($_POST['username'] ?? '');
-            $password = $_POST['password'] ?? '';
-
-            // Validaciones básicas
-            if (empty($username) || empty($password)) {
-                return ['error' => 'Por favor, complete todos los campos.'];
-            }
-
-            if (strlen($username) > MAX_NAME_LENGTH) {
-                return ['error' => 'El nombre de usuario es demasiado largo.'];
-            }
-
-            if (strlen($password) < 8) {
-                return ['error' => 'La contraseña debe tener al menos 8 caracteres.'];
-            }
-
-            // Sanitizar username
-            $username = Security::sanitize($username, 'string');
-            if (!$username) {
-                return ['error' => 'Nombre de usuario no válido.'];
-            }
-
-            // Intentar validar credenciales
-            $user = $this->model->validateCredentials($username, $password);
-            
-            if ($user) {
-                // Login exitoso
-                $this->session->login($user['id'], $user['role']);
-                
-                // Redirigir según el rol
-                if ($user['role'] == ROLE_ADMIN) {
-                    header('Location: ' . BASE_URL . '/modules/dashboard/dashboardView.php?success=logged_in');
-                } else {
-                    header('Location: ' . BASE_URL . '/modules/dashboard/dashboardView.php?success=logged_in');
-                }
-                exit;
-            } else {
-                return ['error' => 'Credenciales inválidas o usuario inactivo.'];
-            }
-
-        } catch (Exception $e) {
-            error_log("Error during login: " . $e->getMessage());
-            return ['error' => 'Error del sistema. Intente nuevamente.'];
-        }
+    // Solo procesar si es POST
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return ['error' => ''];
     }
+
+    try {
+        // Validar token CSRF PRIMERO
+        $csrfToken = $_POST['csrf_token'] ?? '';
+        if (!$this->session->validateCsrfToken($csrfToken)) {
+            error_log("CSRF validation failed for login attempt");
+            return ['error' => 'Error de seguridad: Token CSRF inválido. Intente nuevamente.'];
+        }
+
+        // Obtener y validar datos del formulario
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+
+        // Validaciones básicas
+        if (empty($username) || empty($password)) {
+            return ['error' => 'Por favor, complete todos los campos.'];
+        }
+
+        if (strlen($username) > MAX_NAME_LENGTH) {
+            return ['error' => 'El nombre de usuario es demasiado largo.'];
+        }
+
+        if (strlen($password) < 8) {
+            return ['error' => 'La contraseña debe tener al menos 8 caracteres.'];
+        }
+
+        // Sanitizar username
+        $username = Security::sanitize($username, 'string');
+        if (!$username) {
+            return ['error' => 'Nombre de usuario no válido.'];
+        }
+
+        // Intentar validar credenciales
+        $user = $this->model->validateCredentials($username, $password);
+        
+        if ($user) {
+            // Login exitoso - AQUÍ ESTÁ EL CAMBIO PRINCIPAL
+            // Pasamos el nombre del usuario como tercer parámetro
+            $userName = $user['name'] ?? $user['full_name'] ?? $username;
+            $this->session->login($user['id'], $user['role'], $userName);
+            
+            // Redirigir según el rol
+            if ($user['role'] == ROLE_ADMIN) {
+                header('Location: ' . BASE_URL . '/modules/dashboard/dashboardView.php?success=logged_in');
+            } else {
+                header('Location: ' . BASE_URL . '/modules/dashboard/dashboardView.php?success=logged_in');
+            }
+            exit;
+        } else {
+            return ['error' => 'Credenciales inválidas o usuario inactivo.'];
+        }
+
+    } catch (Exception $e) {
+        error_log("Error during login: " . $e->getMessage());
+        return ['error' => 'Error del sistema. Intente nuevamente.'];
+    }
+}
+
+
+
+
 
     // Obtener token CSRF para formularios
     public function getCsrfToken() {

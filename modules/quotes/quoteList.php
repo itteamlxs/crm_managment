@@ -7,6 +7,7 @@ error_reporting(E_ALL);
 try {
     require_once dirname(__DIR__, 2) . '/core/security.php';
     require_once dirname(__DIR__, 2) . '/core/utils.php';
+    require_once dirname(__DIR__, 2) . '/core/session.php'; 
     require_once dirname(__DIR__) . '/quotes/quoteController.php';
     require_once dirname(__DIR__) . '/quotes/quoteModel.php';
     require_once dirname(__DIR__, 2) . '/config/constants.php';
@@ -144,6 +145,7 @@ function getStatusClass($status) {
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <?php require_once dirname(__DIR__, 2) . '/core/nav.php'; ?>
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">

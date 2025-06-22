@@ -13,6 +13,7 @@ try {
 
 class Session {
     private $timeout;
+    private $userName = null;
 
     public function __construct() {
         // Si hay una sesión activa, NO destruirla para permitir continuidad
@@ -77,14 +78,60 @@ class Session {
     }
 
     // Iniciar sesión de usuario
-    public function login($userId, $role) {
-        session_regenerate_id(true);
-        $_SESSION['user_id'] = (int)$userId;
-        $_SESSION['role'] = (int)$role;
-        $_SESSION['last_activity'] = time();
-        $_SESSION['last_regeneration'] = time();
-        $this->generateCsrfToken(); // Generar nuevo token tras login
+
+    public function login($userId, $userRole, $userName = 'Usuario') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
+    
+    $_SESSION['user_id'] = $userId;
+    $_SESSION['user_role'] = $userRole;
+    $_SESSION['user_name'] = $userName;
+    $_SESSION['login_time'] = time();
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    
+    $this->userId = $userId;
+    $this->userRole = $userRole;
+    $this->userName = $userName;
+    
+    // Regenerar ID de sesión por seguridad
+    session_regenerate_id(true);
+    
+    return true;
+}
+
+// Agregar el método getUserName()
+public function getUserName() {
+    if ($this->userName) {
+        return $this->userName;
+    }
+    
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    return $_SESSION['user_name'] ?? 'Usuario';
+}
+
+// Modificar el método checkSession() para cargar el nombre del usuario
+private function checkSession() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    if (isset($_SESSION['user_id']) && isset($_SESSION['user_role'])) {
+        $this->userId = $_SESSION['user_id'];
+        $this->userRole = $_SESSION['user_role'];
+        $this->userName = $_SESSION['user_name'] ?? 'Usuario';
+        return true;
+    }
+    
+    return false;
+}
+
+
+
+
 
     // Verificar si el usuario está autenticado
     public function isLoggedIn() {

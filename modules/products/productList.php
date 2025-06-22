@@ -115,6 +115,7 @@ $userRole = $controller->getUserRole();
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <?php require_once dirname(__DIR__, 2) . '/core/nav.php'; ?>
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
