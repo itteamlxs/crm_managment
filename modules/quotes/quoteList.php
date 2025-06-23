@@ -86,7 +86,7 @@ if (isset($listResult['error'])) {
 $clients = $controller->getActiveClients();
 $availableStatuses = $controller->getAvailableStatuses();
 
-// Manejar mensajes de URL
+// Manejar mensajes de URL - ACTUALIZADO para incluir email
 if (isset($_GET['success'])) {
     switch ($_GET['success']) {
         case 'created':
@@ -109,6 +109,32 @@ if (isset($_GET['success'])) {
             break;
         case 'cancelada':
             $success = 'Cotización cancelada.';
+            break;
+        case 'quote_sent':
+            $email = $_GET['email'] ?? '';
+            $success = 'Cotización enviada exitosamente por email a: ' . Security::escape($email);
+            break;
+    }
+}
+
+// Manejar mensajes de error - ACTUALIZADO
+if (isset($_GET['error'])) {
+    switch ($_GET['error']) {
+        case 'invalid_request':
+            $error = 'Solicitud no válida.';
+            break;
+        case 'invalid_token':
+            $error = 'Token de seguridad inválido.';
+            break;
+        case 'invalid_quote':
+            $error = 'Cotización no válida.';
+            break;
+        case 'email_not_configured':
+            $error = 'Email no configurado. Configure SMTP en Configuración del Sistema.';
+            break;
+        case 'send_failed':
+            $message = $_GET['message'] ?? 'Error desconocido';
+            $error = 'Error al enviar email: ' . Security::escape($message);
             break;
     }
 }
@@ -143,6 +169,22 @@ function getStatusClass($status) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Cotizaciones - CRM</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .dropdown { position: relative; }
+        .dropdown-menu { 
+            position: absolute; 
+            right: 0; 
+            top: 100%; 
+            z-index: 50; 
+            min-width: 200px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 0.25rem;
+        }
+        .dropdown-menu.hidden { display: none; }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <?php require_once dirname(__DIR__, 2) . '/core/nav.php'; ?>
@@ -154,6 +196,9 @@ function getStatusClass($status) {
                 <div class="flex space-x-2">
                     <a href="quoteForm.php" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
                         + Nueva Cotización
+                    </a>
+                    <a href="emailTest.php" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
+                        Pruebas Email
                     </a>
                     <a href="<?php echo BASE_URL; ?>/modules/products/productList.php" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
                         Productos
@@ -238,12 +283,26 @@ function getStatusClass($status) {
         <?php if ($error): ?>
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 <strong>Error:</strong> <?php echo Security::escape($error); ?>
+                <?php if ($error === 'Email no configurado. Configure SMTP en Configuración del Sistema.'): ?>
+                    <div class="mt-2">
+                        <a href="<?php echo BASE_URL; ?>/modules/settings/settingsView.php?tab=email" class="text-red-800 underline">
+                            Configurar Email aquí
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
         <?php if ($success): ?>
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
                 <?php echo Security::escape($success); ?>
+                <?php if (isset($_GET['success']) && $_GET['success'] === 'quote_sent'): ?>
+                    <div class="mt-2">
+                        <a href="emailTest.php" class="text-green-800 underline text-sm">
+                            Ver historial de emails
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
@@ -338,6 +397,8 @@ function getStatusClass($status) {
                                                 <div class="text-sm text-gray-500">
                                                     <?php echo Security::escape($quote['client_email']); ?>
                                                 </div>
+                                            <?php else: ?>
+                                                <div class="text-sm text-red-500">Sin email</div>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -368,21 +429,69 @@ function getStatusClass($status) {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex space-x-2">
+                                        <div class="flex flex-wrap gap-2">
+                                            <!-- Ver detalles -->
                                             <button type="button" 
                                                    class="text-green-600 hover:text-green-900 view-quote-btn" 
                                                    data-quote='<?php echo htmlspecialchars(json_encode($quote), ENT_QUOTES, 'UTF-8'); ?>'>
                                                 Ver
                                             </button>
                                             
-                                            <!-- Botón directo para imprimir PDF -->
+                                            <!-- PDF -->
                                             <a href="printQuote.php?id=<?php echo $quote['id']; ?>" 
                                                target="_blank"
                                                class="text-purple-600 hover:text-purple-900"
-                                               title="Imprimir PDF">
+                                               title="Generar PDF">
                                                 PDF
                                             </a>
                                             
+                                            <!-- NUEVO: Botón de envío por email -->
+                                            <?php if (($quote['status'] == QUOTE_STATUS_DRAFT || $quote['status'] == QUOTE_STATUS_SENT) && !empty($quote['client_email'])): ?>
+                                                <div class="dropdown">
+                                                    <button type="button" 
+                                                            onclick="window.toggleEmailDropdown(<?php echo $quote['id']; ?>)"
+                                                            class="text-blue-600 hover:text-blue-900">
+                                                        Enviar Email
+                                                    </button>
+                                                    <div id="email-dropdown-<?php echo $quote['id']; ?>" class="dropdown-menu hidden">
+                                                        <div class="py-1">
+                                                            <!-- Envío simple -->
+                                                            <form method="POST" action="sendQuote.php" 
+                                                                  onsubmit="return confirmSendEmail('<?php echo Security::escape($quote['client_email']); ?>', false)">
+                                                                <input type="hidden" name="csrf_token" value="<?php echo Security::escape($controller->getCsrfToken()); ?>">
+                                                                <input type="hidden" name="quote_id" value="<?php echo $quote['id']; ?>">
+                                                                <input type="hidden" name="attach_pdf" value="0">
+                                                                <button type="submit" 
+                                                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                    Enviar Email Simple
+                                                                </button>
+                                                            </form>
+                                                            
+                                                            <!-- Envío con PDF -->
+                                                            <form method="POST" action="sendQuote.php" 
+                                                                  onsubmit="return confirmSendEmail('<?php echo Security::escape($quote['client_email']); ?>', true)">
+                                                                <input type="hidden" name="csrf_token" value="<?php echo Security::escape($controller->getCsrfToken()); ?>">
+                                                                <input type="hidden" name="quote_id" value="<?php echo $quote['id']; ?>">
+                                                                <input type="hidden" name="attach_pdf" value="1">
+                                                                <button type="submit" 
+                                                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                    Enviar con PDF Adjunto
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php elseif (($quote['status'] == QUOTE_STATUS_DRAFT || $quote['status'] == QUOTE_STATUS_SENT) && empty($quote['client_email'])): ?>
+                                                <span class="text-gray-400" title="Cliente sin email">
+                                                    Sin Email
+                                                </span>
+                                                <a href="<?php echo BASE_URL; ?>/modules/clients/clientForm.php?id=<?php echo $quote['client_id']; ?>" 
+                                                   class="text-orange-600 hover:text-orange-800 text-xs">
+                                                    Agregar
+                                                </a>
+                                            <?php endif; ?>
+                                            
+                                            <!-- Editar -->
                                             <?php if ($controller->canEditQuote($quote['status'])): ?>
                                                 <a href="quoteForm.php?id=<?php echo $quote['id']; ?>" 
                                                    class="text-blue-600 hover:text-blue-900">
@@ -390,12 +499,12 @@ function getStatusClass($status) {
                                                 </a>
                                             <?php endif; ?>
 
-                                            <!-- Acciones de estado según el estado actual -->
+                                            <!-- Acciones de estado -->
                                             <?php if ($quote['status'] == QUOTE_STATUS_DRAFT): ?>
                                                 <a href="?action=change_status&id=<?php echo $quote['id']; ?>&new_status=<?php echo QUOTE_STATUS_SENT; ?>" 
                                                    class="text-blue-600 hover:text-blue-900 confirm-action"
                                                    data-message="¿Marcar como enviada?">
-                                                    Enviar
+                                                    Marcar Enviada
                                                 </a>
                                             <?php elseif ($quote['status'] == QUOTE_STATUS_SENT): ?>
                                                 <a href="?action=change_status&id=<?php echo $quote['id']; ?>&new_status=<?php echo QUOTE_STATUS_APPROVED; ?>" 
@@ -410,6 +519,7 @@ function getStatusClass($status) {
                                                 </a>
                                             <?php endif; ?>
 
+                                            <!-- Eliminar (solo admin) -->
                                             <?php if ($userRole === 'admin' && $controller->canDeleteQuote($quote['status'])): ?>
                                                 <a href="?action=delete&id=<?php echo $quote['id']; ?>" 
                                                    class="text-red-600 hover:text-red-900 confirm-action"
@@ -468,7 +578,7 @@ function getStatusClass($status) {
 
         <!-- Ayuda sobre estados -->
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-            <h3 class="text-lg font-medium text-blue-800 mb-2">💡 Estados de Cotización</h3>
+            <h3 class="text-lg font-medium text-blue-800 mb-2">Estados de Cotización</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-blue-700 text-sm">
                 <div>
                     <strong>Borrador:</strong> En proceso de creación
@@ -603,14 +713,46 @@ function getStatusClass($status) {
     <script>
         let currentQuote = null;
 
+        // Función para toggle de dropdowns de email - DEFINIR GLOBALMENTE
+        window.toggleEmailDropdown = function(quoteId) {
+            // Cerrar todos los otros dropdowns
+            document.querySelectorAll('[id^="email-dropdown-"]').forEach(function(dropdown) {
+                if (dropdown.id !== 'email-dropdown-' + quoteId) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            
+            // Toggle el dropdown seleccionado
+            const dropdown = document.getElementById('email-dropdown-' + quoteId);
+            if (dropdown) {
+                dropdown.classList.toggle('hidden');
+            }
+        };
+
+        // Cerrar dropdowns al hacer click fuera
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.dropdown')) {
+                document.querySelectorAll('[id^="email-dropdown-"]').forEach(function(dropdown) {
+                    dropdown.classList.add('hidden');
+                });
+            }
+        });
+
+        // Función para confirmar envío de email
+        function confirmSendEmail(email, withPdf) {
+            const message = withPdf 
+                ? `¿Enviar cotización con PDF adjunto por email a ${email}?`
+                : `¿Enviar cotización por email a ${email}?`;
+            return confirm(message);
+        }
+
         // Función para abrir el modal de la cotización
         function viewQuote(quote) {
             currentQuote = quote;
-            console.log('Abriendo modal para cotización:', quote);
             
             // Llenar datos del modal
             document.getElementById('modalQuoteNumber').textContent = quote.quote_number;
-            document.getElementById('modalQuoteTotal').textContent = '$' + parseFloat(quote.total_amount).toFixed(2);
+            document.getElementById('modalQuoteTotal').textContent = ' + parseFloat(quote.total_amount).toFixed(2);
             
             // Cliente
             document.getElementById('modalClientName').textContent = quote.client_name || 'Cliente eliminado';
@@ -621,8 +763,8 @@ function getStatusClass($status) {
             document.getElementById('modalValidUntil').textContent = formatDate(quote.valid_until);
             
             // Montos
-            document.getElementById('modalSubtotal').textContent = '$' + parseFloat(quote.subtotal).toFixed(2);
-            document.getElementById('modalTaxAmount').textContent = '$' + parseFloat(quote.tax_amount).toFixed(2);
+            document.getElementById('modalSubtotal').textContent = ' + parseFloat(quote.subtotal).toFixed(2);
+            document.getElementById('modalTaxAmount').textContent = ' + parseFloat(quote.tax_amount).toFixed(2);
             
             // Estado
             const statusElement = document.getElementById('modalQuoteStatus');
@@ -654,10 +796,9 @@ function getStatusClass($status) {
             }
         }
 
-        // Función para imprimir cotización como PDF - ¡ACTUALIZADA!
+        // Función para imprimir cotización como PDF
         function printQuoteModal() {
             if (currentQuote) {
-                // Abrir el PDF en una nueva ventana
                 const printUrl = 'printQuote.php?id=' + currentQuote.id;
                 window.open(printUrl, '_blank');
             } else {
@@ -736,7 +877,29 @@ function getStatusClass($status) {
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     closeQuoteModal();
+                    // También cerrar dropdowns de email
+                    document.querySelectorAll('[id^="email-dropdown-"]').forEach(function(dropdown) {
+                        dropdown.classList.add('hidden');
+                    });
                 }
+            });
+
+            // Mejorar formularios de envío de email
+            document.querySelectorAll('form[action="sendQuote.php"]').forEach(function(form) {
+                form.addEventListener('submit', function(e) {
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (submitBtn) {
+                        const originalText = submitBtn.textContent;
+                        submitBtn.textContent = 'Enviando...';
+                        submitBtn.disabled = true;
+                        
+                        // Restaurar después de 10 segundos como fallback
+                        setTimeout(() => {
+                            submitBtn.textContent = originalText;
+                            submitBtn.disabled = false;
+                        }, 10000);
+                    }
+                });
             });
         });
     </script>
