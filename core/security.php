@@ -8,7 +8,7 @@ class Security {
         header('X-Frame-Options: DENY');
         header('X-XSS-Protection: 1; mode=block');
         header('X-Content-Type-Options: nosniff');
-        header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\' https://cdn.jsdelivr.net; style-src \'self\' \'unsafe-inline\' https://cdn.jsdelivr.net; font-src \'self\' https://cdn.jsdelivr.net');
+        header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net");
     }
 
     // Escapar salida para prevenir XSS
@@ -73,6 +73,19 @@ class Security {
     // Validar longitud mínima de contraseña
     public static function validatePassword($password) {
         return is_string($password) && strlen($password) >= 8;
+    }
+
+    // Nuevo: validar si el usuario ha iniciado sesión
+    public static function isLoggedIn() {
+        return isset($_SESSION['user_id']);
+    }
+
+    // Nuevo: forzar autenticación
+    public static function requireLogin() {
+        if (!self::isLoggedIn()) {
+            header("Location: index.php?module=users&action=loginView");
+            exit;
+        }
     }
 }
 ?>

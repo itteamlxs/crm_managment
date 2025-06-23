@@ -14,6 +14,10 @@ class DashboardController {
         $this->model = new DashboardModel();
     }
 
+    public function index() {
+        require_once './modules/dashboard/dashboardView.php';
+    }
+
     // Verificar si el usuario está autenticado
     public function isAuthenticated() {
         return $this->session->isLoggedIn();
