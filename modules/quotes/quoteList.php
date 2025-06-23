@@ -1,5 +1,5 @@
 <?php
-// Vista del listado de cotizaciones
+// Vista del listado de cotizaciones - VERSIÓN SIMPLIFICADA SIN DROPDOWNS
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -86,7 +86,7 @@ if (isset($listResult['error'])) {
 $clients = $controller->getActiveClients();
 $availableStatuses = $controller->getAvailableStatuses();
 
-// Manejar mensajes de URL - ACTUALIZADO para incluir email
+// Manejar mensajes de URL
 if (isset($_GET['success'])) {
     switch ($_GET['success']) {
         case 'created':
@@ -117,7 +117,7 @@ if (isset($_GET['success'])) {
     }
 }
 
-// Manejar mensajes de error - ACTUALIZADO
+// Manejar mensajes de error
 if (isset($_GET['error'])) {
     switch ($_GET['error']) {
         case 'invalid_request':
@@ -169,22 +169,6 @@ function getStatusClass($status) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Cotizaciones - CRM</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        .dropdown { position: relative; }
-        .dropdown-menu { 
-            position: absolute; 
-            right: 0; 
-            top: 100%; 
-            z-index: 50; 
-            min-width: 200px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-top: 0.25rem;
-        }
-        .dropdown-menu.hidden { display: none; }
-    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <?php require_once dirname(__DIR__, 2) . '/core/nav.php'; ?>
@@ -433,7 +417,17 @@ function getStatusClass($status) {
                                             <!-- Ver detalles -->
                                             <button type="button" 
                                                    class="text-green-600 hover:text-green-900 view-quote-btn" 
-                                                   data-quote='<?php echo htmlspecialchars(json_encode($quote), ENT_QUOTES, 'UTF-8'); ?>'>
+                                                   data-quote-id="<?php echo $quote['id']; ?>"
+                                                   data-quote-number="<?php echo Security::escape($quote['quote_number']); ?>"
+                                                   data-client-name="<?php echo Security::escape($quote['client_name'] ?? 'Cliente eliminado'); ?>"
+                                                   data-client-email="<?php echo Security::escape($quote['client_email'] ?? ''); ?>"
+                                                   data-quote-date="<?php echo $quote['quote_date']; ?>"
+                                                   data-valid-until="<?php echo $quote['valid_until']; ?>"
+                                                   data-subtotal="<?php echo $quote['subtotal']; ?>"
+                                                   data-tax-amount="<?php echo $quote['tax_amount']; ?>"
+                                                   data-total-amount="<?php echo $quote['total_amount']; ?>"
+                                                   data-status="<?php echo $quote['status']; ?>"
+                                                   data-notes="<?php echo Security::escape($quote['notes'] ?? ''); ?>">
                                                 Ver
                                             </button>
                                             
@@ -445,42 +439,19 @@ function getStatusClass($status) {
                                                 PDF
                                             </a>
                                             
-                                            <!-- NUEVO: Botón de envío por email -->
+                                            <!-- ENVIAR EMAIL SIMPLIFICADO -->
                                             <?php if (($quote['status'] == QUOTE_STATUS_DRAFT || $quote['status'] == QUOTE_STATUS_SENT) && !empty($quote['client_email'])): ?>
-                                                <div class="dropdown">
-                                                    <button type="button" 
-                                                            onclick="window.toggleEmailDropdown(<?php echo $quote['id']; ?>)"
-                                                            class="text-blue-600 hover:text-blue-900">
+                                                <form method="POST" action="sendQuote.php" style="display: inline;" 
+                                                      onsubmit="return confirmSendEmail('<?php echo Security::escape($quote['client_email']); ?>')">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo Security::escape($controller->getCsrfToken()); ?>">
+                                                    <input type="hidden" name="quote_id" value="<?php echo $quote['id']; ?>">
+                                                    <input type="hidden" name="attach_pdf" value="0">
+                                                    <input type="hidden" name="client_email" value="<?php echo Security::escape($quote['client_email']); ?>">
+                                                    <button type="submit" 
+                                                            class="text-blue-600 hover:text-blue-900 send-email-btn">
                                                         Enviar Email
                                                     </button>
-                                                    <div id="email-dropdown-<?php echo $quote['id']; ?>" class="dropdown-menu hidden">
-                                                        <div class="py-1">
-                                                            <!-- Envío simple -->
-                                                            <form method="POST" action="sendQuote.php" 
-                                                                  onsubmit="return confirmSendEmail('<?php echo Security::escape($quote['client_email']); ?>', false)">
-                                                                <input type="hidden" name="csrf_token" value="<?php echo Security::escape($controller->getCsrfToken()); ?>">
-                                                                <input type="hidden" name="quote_id" value="<?php echo $quote['id']; ?>">
-                                                                <input type="hidden" name="attach_pdf" value="0">
-                                                                <button type="submit" 
-                                                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                                    Enviar Email Simple
-                                                                </button>
-                                                            </form>
-                                                            
-                                                            <!-- Envío con PDF -->
-                                                            <form method="POST" action="sendQuote.php" 
-                                                                  onsubmit="return confirmSendEmail('<?php echo Security::escape($quote['client_email']); ?>', true)">
-                                                                <input type="hidden" name="csrf_token" value="<?php echo Security::escape($controller->getCsrfToken()); ?>">
-                                                                <input type="hidden" name="quote_id" value="<?php echo $quote['id']; ?>">
-                                                                <input type="hidden" name="attach_pdf" value="1">
-                                                                <button type="submit" 
-                                                                        class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                                    Enviar con PDF Adjunto
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                </form>
                                             <?php elseif (($quote['status'] == QUOTE_STATUS_DRAFT || $quote['status'] == QUOTE_STATUS_SENT) && empty($quote['client_email'])): ?>
                                                 <span class="text-gray-400" title="Cliente sin email">
                                                     Sin Email
@@ -502,19 +473,19 @@ function getStatusClass($status) {
                                             <!-- Acciones de estado -->
                                             <?php if ($quote['status'] == QUOTE_STATUS_DRAFT): ?>
                                                 <a href="?action=change_status&id=<?php echo $quote['id']; ?>&new_status=<?php echo QUOTE_STATUS_SENT; ?>" 
-                                                   class="text-blue-600 hover:text-blue-900 confirm-action"
-                                                   data-message="¿Marcar como enviada?">
+                                                   class="text-blue-600 hover:text-blue-900"
+                                                   onclick="return confirm('¿Marcar como enviada?')">
                                                     Marcar Enviada
                                                 </a>
                                             <?php elseif ($quote['status'] == QUOTE_STATUS_SENT): ?>
                                                 <a href="?action=change_status&id=<?php echo $quote['id']; ?>&new_status=<?php echo QUOTE_STATUS_APPROVED; ?>" 
-                                                   class="text-green-600 hover:text-green-900 confirm-action"
-                                                   data-message="¿Marcar como aprobada?">
+                                                   class="text-green-600 hover:text-green-900"
+                                                   onclick="return confirm('¿Marcar como aprobada?')">
                                                     Aprobar
                                                 </a>
                                                 <a href="?action=change_status&id=<?php echo $quote['id']; ?>&new_status=<?php echo QUOTE_STATUS_REJECTED; ?>" 
-                                                   class="text-red-600 hover:text-red-900 confirm-action"
-                                                   data-message="¿Marcar como rechazada?">
+                                                   class="text-red-600 hover:text-red-900"
+                                                   onclick="return confirm('¿Marcar como rechazada?')">
                                                     Rechazar
                                                 </a>
                                             <?php endif; ?>
@@ -522,8 +493,8 @@ function getStatusClass($status) {
                                             <!-- Eliminar (solo admin) -->
                                             <?php if ($userRole === 'admin' && $controller->canDeleteQuote($quote['status'])): ?>
                                                 <a href="?action=delete&id=<?php echo $quote['id']; ?>" 
-                                                   class="text-red-600 hover:text-red-900 confirm-action"
-                                                   data-message="¿Está seguro de eliminar esta cotización? Esta acción no se puede deshacer.">
+                                                   class="text-red-600 hover:text-red-900"
+                                                   onclick="return confirm('¿Está seguro de eliminar esta cotización? Esta acción no se puede deshacer.')">
                                                     Eliminar
                                                 </a>
                                             <?php endif; ?>
@@ -602,7 +573,7 @@ function getStatusClass($status) {
         </div>
     </div>
 
-    <!-- Modal integrado para ver cotización -->
+    <!-- Modal para ver cotización -->
     <div id="quoteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-auto">
@@ -710,71 +681,61 @@ function getStatusClass($status) {
         </div>
     </div>
 
+    <!-- JavaScript SUPER SIMPLIFICADO -->
     <script>
         let currentQuote = null;
-
-        // Función para toggle de dropdowns de email - DEFINIR GLOBALMENTE
-        window.toggleEmailDropdown = function(quoteId) {
-            // Cerrar todos los otros dropdowns
-            document.querySelectorAll('[id^="email-dropdown-"]').forEach(function(dropdown) {
-                if (dropdown.id !== 'email-dropdown-' + quoteId) {
-                    dropdown.classList.add('hidden');
-                }
-            });
-            
-            // Toggle el dropdown seleccionado
-            const dropdown = document.getElementById('email-dropdown-' + quoteId);
-            if (dropdown) {
-                dropdown.classList.toggle('hidden');
-            }
+        
+        // Constantes de estado
+        const QUOTE_STATUS = {
+            DRAFT: <?php echo QUOTE_STATUS_DRAFT; ?>,
+            SENT: <?php echo QUOTE_STATUS_SENT; ?>,
+            APPROVED: <?php echo QUOTE_STATUS_APPROVED; ?>,
+            REJECTED: <?php echo QUOTE_STATUS_REJECTED; ?>,
+            EXPIRED: <?php echo QUOTE_STATUS_EXPIRED; ?>,
+            CANCELLED: <?php echo QUOTE_STATUS_CANCELLED; ?>
         };
 
-        // Cerrar dropdowns al hacer click fuera
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.dropdown')) {
-                document.querySelectorAll('[id^="email-dropdown-"]').forEach(function(dropdown) {
-                    dropdown.classList.add('hidden');
-                });
-            }
-        });
-
         // Función para confirmar envío de email
-        function confirmSendEmail(email, withPdf) {
-            const message = withPdf 
-                ? `¿Enviar cotización con PDF adjunto por email a ${email}?`
-                : `¿Enviar cotización por email a ${email}?`;
-            return confirm(message);
+        function confirmSendEmail(email) {
+            const confirmed = confirm('¿Enviar cotización por email a ' + email + '?');
+            if (confirmed) {
+                // Mostrar estado de carga en el botón
+                event.target.textContent = 'Enviando...';
+                event.target.disabled = true;
+                event.target.style.opacity = '0.7';
+            }
+            return confirmed;
         }
 
         // Función para abrir el modal de la cotización
-        function viewQuote(quote) {
-            currentQuote = quote;
+        function viewQuote(quoteData) {
+            currentQuote = quoteData;
             
             // Llenar datos del modal
-            document.getElementById('modalQuoteNumber').textContent = quote.quote_number;
-            document.getElementById('modalQuoteTotal').textContent = ' + parseFloat(quote.total_amount).toFixed(2);
+            document.getElementById('modalQuoteNumber').textContent = quoteData.quoteNumber;
+            document.getElementById('modalQuoteTotal').textContent = ' + parseFloat(quoteData.totalAmount).toFixed(2);
             
             // Cliente
-            document.getElementById('modalClientName').textContent = quote.client_name || 'Cliente eliminado';
-            document.getElementById('modalClientEmail').textContent = quote.client_email || 'N/A';
+            document.getElementById('modalClientName').textContent = quoteData.clientName || 'Cliente eliminado';
+            document.getElementById('modalClientEmail').textContent = quoteData.clientEmail || 'N/A';
             
             // Fechas
-            document.getElementById('modalQuoteDate').textContent = formatDate(quote.quote_date);
-            document.getElementById('modalValidUntil').textContent = formatDate(quote.valid_until);
+            document.getElementById('modalQuoteDate').textContent = formatDate(quoteData.quoteDate);
+            document.getElementById('modalValidUntil').textContent = formatDate(quoteData.validUntil);
             
             // Montos
-            document.getElementById('modalSubtotal').textContent = ' + parseFloat(quote.subtotal).toFixed(2);
-            document.getElementById('modalTaxAmount').textContent = ' + parseFloat(quote.tax_amount).toFixed(2);
+            document.getElementById('modalSubtotal').textContent = ' + parseFloat(quoteData.subtotal).toFixed(2);
+            document.getElementById('modalTaxAmount').textContent = ' + parseFloat(quoteData.taxAmount).toFixed(2);
             
             // Estado
             const statusElement = document.getElementById('modalQuoteStatus');
-            statusElement.textContent = getStatusName(quote.status);
-            statusElement.className = 'inline-flex px-3 py-1 text-sm font-semibold rounded-full ' + getStatusClass(quote.status);
+            statusElement.textContent = getStatusName(quoteData.status);
+            statusElement.className = 'inline-flex px-3 py-1 text-sm font-semibold rounded-full ' + getStatusClass(quoteData.status);
             
             // Notas
             const notesElement = document.getElementById('modalNotes');
-            if (quote.notes) {
-                notesElement.textContent = quote.notes;
+            if (quoteData.notes) {
+                notesElement.textContent = quoteData.notes;
             } else {
                 notesElement.innerHTML = '<em class="text-gray-500">Sin notas</em>';
             }
@@ -789,23 +750,6 @@ function getStatusClass($status) {
             currentQuote = null;
         }
 
-        // Función para editar desde el modal
-        function editQuoteFromModal() {
-            if (currentQuote) {
-                window.location.href = 'quoteForm.php?id=' + currentQuote.id;
-            }
-        }
-
-        // Función para imprimir cotización como PDF
-        function printQuoteModal() {
-            if (currentQuote) {
-                const printUrl = 'printQuote.php?id=' + currentQuote.id;
-                window.open(printUrl, '_blank');
-            } else {
-                alert('No hay cotización seleccionada para imprimir.');
-            }
-        }
-
         // Función para formatear fechas
         function formatDate(dateString) {
             if (!dateString) return '';
@@ -815,56 +759,73 @@ function getStatusClass($status) {
 
         // Función para obtener nombre del estado
         function getStatusName(status) {
-            const statusNames = {
-                '<?php echo QUOTE_STATUS_DRAFT; ?>': 'Borrador',
-                '<?php echo QUOTE_STATUS_SENT; ?>': 'Enviada',
-                '<?php echo QUOTE_STATUS_APPROVED; ?>': 'Aprobada',
-                '<?php echo QUOTE_STATUS_REJECTED; ?>': 'Rechazada',
-                '<?php echo QUOTE_STATUS_EXPIRED; ?>': 'Vencida',
-                '<?php echo QUOTE_STATUS_CANCELLED; ?>': 'Cancelada'
-            };
+            const statusNames = {};
+            statusNames[QUOTE_STATUS.DRAFT] = 'Borrador';
+            statusNames[QUOTE_STATUS.SENT] = 'Enviada';
+            statusNames[QUOTE_STATUS.APPROVED] = 'Aprobada';
+            statusNames[QUOTE_STATUS.REJECTED] = 'Rechazada';
+            statusNames[QUOTE_STATUS.EXPIRED] = 'Vencida';
+            statusNames[QUOTE_STATUS.CANCELLED] = 'Cancelada';
+            
             return statusNames[status] || 'Desconocido';
         }
 
         // Función para obtener clase CSS del estado
         function getStatusClass(status) {
-            const statusClasses = {
-                '<?php echo QUOTE_STATUS_DRAFT; ?>': 'bg-gray-100 text-gray-800',
-                '<?php echo QUOTE_STATUS_SENT; ?>': 'bg-blue-100 text-blue-800',
-                '<?php echo QUOTE_STATUS_APPROVED; ?>': 'bg-green-100 text-green-800',
-                '<?php echo QUOTE_STATUS_REJECTED; ?>': 'bg-red-100 text-red-800',
-                '<?php echo QUOTE_STATUS_EXPIRED; ?>': 'bg-yellow-100 text-yellow-800',
-                '<?php echo QUOTE_STATUS_CANCELLED; ?>': 'bg-gray-100 text-gray-600'
-            };
+            const statusClasses = {};
+            statusClasses[QUOTE_STATUS.DRAFT] = 'bg-gray-100 text-gray-800';
+            statusClasses[QUOTE_STATUS.SENT] = 'bg-blue-100 text-blue-800';
+            statusClasses[QUOTE_STATUS.APPROVED] = 'bg-green-100 text-green-800';
+            statusClasses[QUOTE_STATUS.REJECTED] = 'bg-red-100 text-red-800';
+            statusClasses[QUOTE_STATUS.EXPIRED] = 'bg-yellow-100 text-yellow-800';
+            statusClasses[QUOTE_STATUS.CANCELLED] = 'bg-gray-100 text-gray-600';
+            
             return statusClasses[status] || 'bg-gray-100 text-gray-800';
         }
 
-        // Event listeners cuando el DOM esté listo
+        // Inicialización cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Inicializando cotizaciones...');
             
-            // Event listeners para botones "Ver"
+            // Event listeners para botones "Ver cotización"
             document.querySelectorAll('.view-quote-btn').forEach(function(button) {
-                button.addEventListener('click', function() {
-                    const quoteData = JSON.parse(this.getAttribute('data-quote'));
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Obtener datos del botón
+                    const quoteData = {
+                        id: this.getAttribute('data-quote-id'),
+                        quoteNumber: this.getAttribute('data-quote-number'),
+                        clientName: this.getAttribute('data-client-name'),
+                        clientEmail: this.getAttribute('data-client-email'),
+                        quoteDate: this.getAttribute('data-quote-date'),
+                        validUntil: this.getAttribute('data-valid-until'),
+                        subtotal: this.getAttribute('data-subtotal'),
+                        taxAmount: this.getAttribute('data-tax-amount'),
+                        totalAmount: this.getAttribute('data-total-amount'),
+                        status: parseInt(this.getAttribute('data-status')),
+                        notes: this.getAttribute('data-notes')
+                    };
+                    
                     viewQuote(quoteData);
-                });
-            });
-
-            // Event listeners para acciones que requieren confirmación
-            document.querySelectorAll('.confirm-action').forEach(function(link) {
-                link.addEventListener('click', function(e) {
-                    const message = this.getAttribute('data-message');
-                    if (!confirm(message)) {
-                        e.preventDefault();
-                    }
                 });
             });
 
             // Event listeners para botones del modal
             document.getElementById('closeModalBtn').addEventListener('click', closeQuoteModal);
-            document.getElementById('modalEditBtn').addEventListener('click', editQuoteFromModal);
-            document.getElementById('modalPrintBtn').addEventListener('click', printQuoteModal);
             document.getElementById('modalCloseBtn').addEventListener('click', closeQuoteModal);
+            
+            document.getElementById('modalEditBtn').addEventListener('click', function() {
+                if (currentQuote) {
+                    window.location.href = 'quoteForm.php?id=' + currentQuote.id;
+                }
+            });
+            
+            document.getElementById('modalPrintBtn').addEventListener('click', function() {
+                if (currentQuote) {
+                    window.open('printQuote.php?id=' + currentQuote.id, '_blank');
+                }
+            });
             
             // Cerrar modal al hacer clic fuera
             document.getElementById('quoteModal').addEventListener('click', function(e) {
@@ -873,34 +834,14 @@ function getStatusClass($status) {
                 }
             });
 
-            // Cerrar modal con tecla ESC
+            // Cerrar modal con ESC
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     closeQuoteModal();
-                    // También cerrar dropdowns de email
-                    document.querySelectorAll('[id^="email-dropdown-"]').forEach(function(dropdown) {
-                        dropdown.classList.add('hidden');
-                    });
                 }
             });
 
-            // Mejorar formularios de envío de email
-            document.querySelectorAll('form[action="sendQuote.php"]').forEach(function(form) {
-                form.addEventListener('submit', function(e) {
-                    const submitBtn = this.querySelector('button[type="submit"]');
-                    if (submitBtn) {
-                        const originalText = submitBtn.textContent;
-                        submitBtn.textContent = 'Enviando...';
-                        submitBtn.disabled = true;
-                        
-                        // Restaurar después de 10 segundos como fallback
-                        setTimeout(() => {
-                            submitBtn.textContent = originalText;
-                            submitBtn.disabled = false;
-                        }, 10000);
-                    }
-                });
-            });
+            console.log('Inicialización completada');
         });
     </script>
 </body>
