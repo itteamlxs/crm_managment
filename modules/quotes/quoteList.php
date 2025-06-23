@@ -176,6 +176,17 @@ function escapeForDataAttribute($value) {
     // Escapar comillas y saltos de línea para atributos HTML
     return htmlspecialchars(str_replace(["\r\n", "\n", "\r"], ' ', $value), ENT_QUOTES, 'UTF-8');
 }
+
+// Función para limpiar completamente cualquier string problemático
+function cleanString($value) {
+    if ($value === null) {
+        return '';
+    }
+    // Remover caracteres problemáticos
+    $value = preg_replace('/[\r\n\t]/', ' ', $value);
+    $value = preg_replace('/["\']/', '', $value);
+    return trim($value);
+}
 ?>
 
 <!DOCTYPE html>
@@ -430,22 +441,11 @@ function escapeForDataAttribute($value) {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div class="flex flex-wrap gap-2">
-                                            <!-- Ver detalles - CORREGIDO para evitar saltos de línea -->
-                                            <button type="button" 
-                                                   class="text-green-600 hover:text-green-900 view-quote-btn" 
-                                                   data-quote-id="<?php echo $quote['id']; ?>"
-                                                   data-quote-number="<?php echo escapeForDataAttribute($quote['quote_number']); ?>"
-                                                   data-client-name="<?php echo escapeForDataAttribute($quote['client_name'] ?? 'Cliente eliminado'); ?>"
-                                                   data-client-email="<?php echo escapeForDataAttribute($quote['client_email'] ?? ''); ?>"
-                                                   data-quote-date="<?php echo $quote['quote_date']; ?>"
-                                                   data-valid-until="<?php echo $quote['valid_until']; ?>"
-                                                   data-subtotal="<?php echo $quote['subtotal']; ?>"
-                                                   data-tax-amount="<?php echo $quote['tax_amount']; ?>"
-                                                   data-total-amount="<?php echo $quote['total_amount']; ?>"
-                                                   data-status="<?php echo $quote['status']; ?>"
-                                                   data-notes="<?php echo escapeForDataAttribute($quote['notes'] ?? ''); ?>">
+                                            <!-- Ver detalles - ENLACE DIRECTO COMO EDIT -->
+                                            <a href="quoteView.php?id=<?php echo $quote['id']; ?>" 
+                                               class="text-green-600 hover:text-green-900">
                                                 Ver
-                                            </button>
+                                            </a>
                                             
                                             <!-- PDF -->
                                             <a href="printQuote.php?id=<?php echo $quote['id']; ?>" 
@@ -808,33 +808,11 @@ function escapeForDataAttribute($value) {
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Inicializando cotizaciones...');
             
-            // Event listeners para botones "Ver cotización"
+            // Event listeners para botones "Ver cotización" - RESTAURADO EL MÉTODO ORIGINAL
             document.querySelectorAll('.view-quote-btn').forEach(function(button) {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    try {
-                        // Obtener datos del botón de forma más segura
-                        const quoteData = {
-                            id: this.getAttribute('data-quote-id'),
-                            quoteNumber: this.getAttribute('data-quote-number'),
-                            clientName: this.getAttribute('data-client-name'),
-                            clientEmail: this.getAttribute('data-client-email'),
-                            quoteDate: this.getAttribute('data-quote-date'),
-                            validUntil: this.getAttribute('data-valid-until'),
-                            subtotal: this.getAttribute('data-subtotal'),
-                            taxAmount: this.getAttribute('data-tax-amount'),
-                            totalAmount: this.getAttribute('data-total-amount'),
-                            status: parseInt(this.getAttribute('data-status')),
-                            notes: this.getAttribute('data-notes')
-                        };
-                        
-                        console.log('Datos de cotización:', quoteData);
-                        viewQuote(quoteData);
-                    } catch (error) {
-                        console.error('Error al obtener datos de la cotización:', error);
-                        alert('Error al cargar los datos de la cotización');
-                    }
+                button.addEventListener('click', function() {
+                    const quoteData = JSON.parse(this.getAttribute('data-quote'));
+                    viewQuote(quoteData);
                 });
             });
 
@@ -843,13 +821,13 @@ function escapeForDataAttribute($value) {
             document.getElementById('modalCloseBtn').addEventListener('click', closeQuoteModal);
             
             document.getElementById('modalEditBtn').addEventListener('click', function() {
-                if (currentQuote && currentQuote.id) {
+                if (currentQuote) {
                     window.location.href = 'quoteForm.php?id=' + currentQuote.id;
                 }
             });
             
             document.getElementById('modalPrintBtn').addEventListener('click', function() {
-                if (currentQuote && currentQuote.id) {
+                if (currentQuote) {
                     window.open('printQuote.php?id=' + currentQuote.id, '_blank');
                 }
             });
