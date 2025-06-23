@@ -1,5 +1,5 @@
 <?php
-// Vista del listado de cotizaciones - VERSIÓN SIMPLIFICADA SIN DROPDOWNS
+// Vista del listado de cotizaciones - VERSIÓN CORREGIDA
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -129,6 +129,13 @@ if (isset($_GET['error'])) {
         case 'invalid_quote':
             $error = 'Cotización no válida.';
             break;
+        case 'quote_not_found':
+            $error = 'Cotización no encontrada.';
+            break;
+        case 'invalid_status':
+            $message = $_GET['message'] ?? 'Estado de cotización no válido';
+            $error = Security::escape($message);
+            break;
         case 'email_not_configured':
             $error = 'Email no configurado. Configure SMTP en Configuración del Sistema.';
             break;
@@ -159,6 +166,15 @@ function getStatusClass($status) {
         default:
             return 'bg-gray-100 text-gray-800';
     }
+}
+
+// Función para escapar datos para atributos HTML y JavaScript
+function escapeForDataAttribute($value) {
+    if ($value === null) {
+        return '';
+    }
+    // Escapar comillas y saltos de línea para atributos HTML
+    return htmlspecialchars(str_replace(["\r\n", "\n", "\r"], ' ', $value), ENT_QUOTES, 'UTF-8');
 }
 ?>
 
@@ -414,20 +430,20 @@ function getStatusClass($status) {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div class="flex flex-wrap gap-2">
-                                            <!-- Ver detalles -->
+                                            <!-- Ver detalles - CORREGIDO para evitar saltos de línea -->
                                             <button type="button" 
                                                    class="text-green-600 hover:text-green-900 view-quote-btn" 
                                                    data-quote-id="<?php echo $quote['id']; ?>"
-                                                   data-quote-number="<?php echo Security::escape($quote['quote_number']); ?>"
-                                                   data-client-name="<?php echo Security::escape($quote['client_name'] ?? 'Cliente eliminado'); ?>"
-                                                   data-client-email="<?php echo Security::escape($quote['client_email'] ?? ''); ?>"
+                                                   data-quote-number="<?php echo escapeForDataAttribute($quote['quote_number']); ?>"
+                                                   data-client-name="<?php echo escapeForDataAttribute($quote['client_name'] ?? 'Cliente eliminado'); ?>"
+                                                   data-client-email="<?php echo escapeForDataAttribute($quote['client_email'] ?? ''); ?>"
                                                    data-quote-date="<?php echo $quote['quote_date']; ?>"
                                                    data-valid-until="<?php echo $quote['valid_until']; ?>"
                                                    data-subtotal="<?php echo $quote['subtotal']; ?>"
                                                    data-tax-amount="<?php echo $quote['tax_amount']; ?>"
                                                    data-total-amount="<?php echo $quote['total_amount']; ?>"
                                                    data-status="<?php echo $quote['status']; ?>"
-                                                   data-notes="<?php echo Security::escape($quote['notes'] ?? ''); ?>">
+                                                   data-notes="<?php echo escapeForDataAttribute($quote['notes'] ?? ''); ?>">
                                                 Ver
                                             </button>
                                             
@@ -681,7 +697,7 @@ function getStatusClass($status) {
         </div>
     </div>
 
-    <!-- JavaScript SUPER SIMPLIFICADO -->
+    <!-- JavaScript CORREGIDO -->
     <script>
         let currentQuote = null;
         
@@ -712,8 +728,8 @@ function getStatusClass($status) {
             currentQuote = quoteData;
             
             // Llenar datos del modal
-            document.getElementById('modalQuoteNumber').textContent = quoteData.quoteNumber;
-            document.getElementById('modalQuoteTotal').textContent = ' + parseFloat(quoteData.totalAmount).toFixed(2);
+            document.getElementById('modalQuoteNumber').textContent = quoteData.quoteNumber || '';
+            document.getElementById('modalQuoteTotal').textContent = ' + parseFloat(quoteData.totalAmount || 0).toFixed(2);
             
             // Cliente
             document.getElementById('modalClientName').textContent = quoteData.clientName || 'Cliente eliminado';
@@ -724,8 +740,8 @@ function getStatusClass($status) {
             document.getElementById('modalValidUntil').textContent = formatDate(quoteData.validUntil);
             
             // Montos
-            document.getElementById('modalSubtotal').textContent = ' + parseFloat(quoteData.subtotal).toFixed(2);
-            document.getElementById('modalTaxAmount').textContent = ' + parseFloat(quoteData.taxAmount).toFixed(2);
+            document.getElementById('modalSubtotal').textContent = ' + parseFloat(quoteData.subtotal || 0).toFixed(2);
+            document.getElementById('modalTaxAmount').textContent = ' + parseFloat(quoteData.taxAmount || 0).toFixed(2);
             
             // Estado
             const statusElement = document.getElementById('modalQuoteStatus');
@@ -734,8 +750,9 @@ function getStatusClass($status) {
             
             // Notas
             const notesElement = document.getElementById('modalNotes');
-            if (quoteData.notes) {
-                notesElement.textContent = quoteData.notes;
+            if (quoteData.notes && quoteData.notes.trim()) {
+                // Restaurar saltos de línea que fueron convertidos a espacios
+                notesElement.innerHTML = quoteData.notes.replace(/\n/g, '<br>');
             } else {
                 notesElement.innerHTML = '<em class="text-gray-500">Sin notas</em>';
             }
@@ -753,8 +770,12 @@ function getStatusClass($status) {
         // Función para formatear fechas
         function formatDate(dateString) {
             if (!dateString) return '';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('es-ES');
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('es-ES');
+            } catch (e) {
+                return dateString;
+            }
         }
 
         // Función para obtener nombre del estado
@@ -792,22 +813,28 @@ function getStatusClass($status) {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
                     
-                    // Obtener datos del botón
-                    const quoteData = {
-                        id: this.getAttribute('data-quote-id'),
-                        quoteNumber: this.getAttribute('data-quote-number'),
-                        clientName: this.getAttribute('data-client-name'),
-                        clientEmail: this.getAttribute('data-client-email'),
-                        quoteDate: this.getAttribute('data-quote-date'),
-                        validUntil: this.getAttribute('data-valid-until'),
-                        subtotal: this.getAttribute('data-subtotal'),
-                        taxAmount: this.getAttribute('data-tax-amount'),
-                        totalAmount: this.getAttribute('data-total-amount'),
-                        status: parseInt(this.getAttribute('data-status')),
-                        notes: this.getAttribute('data-notes')
-                    };
-                    
-                    viewQuote(quoteData);
+                    try {
+                        // Obtener datos del botón de forma más segura
+                        const quoteData = {
+                            id: this.getAttribute('data-quote-id'),
+                            quoteNumber: this.getAttribute('data-quote-number'),
+                            clientName: this.getAttribute('data-client-name'),
+                            clientEmail: this.getAttribute('data-client-email'),
+                            quoteDate: this.getAttribute('data-quote-date'),
+                            validUntil: this.getAttribute('data-valid-until'),
+                            subtotal: this.getAttribute('data-subtotal'),
+                            taxAmount: this.getAttribute('data-tax-amount'),
+                            totalAmount: this.getAttribute('data-total-amount'),
+                            status: parseInt(this.getAttribute('data-status')),
+                            notes: this.getAttribute('data-notes')
+                        };
+                        
+                        console.log('Datos de cotización:', quoteData);
+                        viewQuote(quoteData);
+                    } catch (error) {
+                        console.error('Error al obtener datos de la cotización:', error);
+                        alert('Error al cargar los datos de la cotización');
+                    }
                 });
             });
 
@@ -816,13 +843,13 @@ function getStatusClass($status) {
             document.getElementById('modalCloseBtn').addEventListener('click', closeQuoteModal);
             
             document.getElementById('modalEditBtn').addEventListener('click', function() {
-                if (currentQuote) {
+                if (currentQuote && currentQuote.id) {
                     window.location.href = 'quoteForm.php?id=' + currentQuote.id;
                 }
             });
             
             document.getElementById('modalPrintBtn').addEventListener('click', function() {
-                if (currentQuote) {
+                if (currentQuote && currentQuote.id) {
                     window.open('printQuote.php?id=' + currentQuote.id, '_blank');
                 }
             });

@@ -51,13 +51,35 @@ try {
         exit;
     }
     
+    // Verificar estado actual de la cotización ANTES de enviar
+    require_once __DIR__ . '/quoteModel.php';
+    $quoteModel = new QuoteModel();
+    $quote = $quoteModel->getById($quoteId);
+    
+    if (!$quote) {
+        header('Location: ' . BASE_URL . '/modules/quotes/quoteList.php?error=quote_not_found');
+        exit;
+    }
+    
+    // Verificar que la cotización se puede enviar (debe estar en borrador o ya enviada)
+    if (!in_array($quote['status'], [QUOTE_STATUS_DRAFT, QUOTE_STATUS_SENT])) {
+        $statusName = $quoteModel->getStatusName($quote['status']);
+        header('Location: ' . BASE_URL . '/modules/quotes/quoteList.php?error=invalid_status&message=' . urlencode("No se puede enviar una cotización en estado: {$statusName}"));
+        exit;
+    }
+    
     // Enviar cotización
     $result = $emailService->sendQuoteEmail($quoteId, $attachPdf);
     
-    // Cambiar estado de la cotización a "Enviada"
-    require_once __DIR__ . '/quoteModel.php';
-    $quoteModel = new QuoteModel();
-    $quoteModel->changeStatus($quoteId, QUOTE_STATUS_SENT);
+    // Cambiar estado SOLO si está en borrador
+    if ($quote['status'] == QUOTE_STATUS_DRAFT) {
+        try {
+            $quoteModel->changeStatus($quoteId, QUOTE_STATUS_SENT);
+        } catch (Exception $e) {
+            error_log("Warning: Could not change quote status after sending email: " . $e->getMessage());
+            // No fallar aquí porque el email ya se envió exitosamente
+        }
+    }
     
     // Redireccionar con éxito
     header('Location: ' . BASE_URL . '/modules/quotes/quoteList.php?success=quote_sent&email=' . urlencode($result['to']));
