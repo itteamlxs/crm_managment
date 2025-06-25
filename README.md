@@ -1,11 +1,11 @@
-# 🏢 Sistema CRM - Gestión de Relaciones con Clientes
+#Sistema CRM - Gestión de Relaciones con Clientes
 
 Un sistema completo de gestión de relaciones con clientes (CRM) desarrollado en PHP con MySQL, diseñado para empresas que necesitan administrar clientes, productos, cotizaciones y generar reportes detallados.
 
 
-## 📋 Características Principales
+## Características Principales
 
-### 🎯 Funcionalidades Core
+### Funcionalidades Core
 - **Gestión de Clientes**: Registro completo con datos de contacto y actividad
 - **Catálogo de Productos**: Inventario con categorías, precios e impuestos
 - **Sistema de Cotizaciones**: Creación, edición y seguimiento de cotizaciones
@@ -15,7 +15,7 @@ Un sistema completo de gestión de relaciones con clientes (CRM) desarrollado en
 - **Generador de Reportes**: Exportación personalizada en CSV
 - **Gestión de Usuarios**: Roles de administrador y vendedor
 
-### 🔧 Características Técnicas
+### Características Técnicas
 - **Arquitectura MVC**: Separación clara de responsabilidades
 - **Seguridad Avanzada**: CSRF protection, SQL injection prevention, XSS protection
 - **Responsive Design**: Interfaz adaptable a dispositivos móviles
@@ -23,7 +23,7 @@ Un sistema completo de gestión de relaciones con clientes (CRM) desarrollado en
 - **Configuración Flexible**: Panel de administración completo
 - **APIs RESTful**: Preparado para integraciones futuras
 
-## 🎨 Capturas de Pantalla
+## Capturas de Pantalla
 
 ### Dashboard Principal
 ![Dashboard](docs/images/dashboard.png)
@@ -34,7 +34,7 @@ Un sistema completo de gestión de relaciones con clientes (CRM) desarrollado en
 ### Panel de Configuración
 ![Configuración](docs/images/settings.png)
 
-## 📋 Requisitos del Sistema
+## Requisitos del Sistema
 
 ### Requisitos Mínimos
 - **PHP**: 7.4 o superior
@@ -286,7 +286,7 @@ docker-compose up -d
 - **Usuario por defecto**: `admin`
 - **Contraseña por defecto**: `admin123`
 
-> ⚠️ **IMPORTANTE**: Cambiar las credenciales por defecto inmediatamente
+> **IMPORTANTE**: Cambiar las credenciales por defecto inmediatamente
 
 ### 2. Configuración Básica
 
@@ -309,7 +309,7 @@ docker-compose up -d
    - Ir a `Usuarios`
    - Crear vendedores y administradores
 
-## 📧 Configuración de Email
+## Configuración de Email
 
 ### Gmail
 
@@ -339,7 +339,7 @@ Contraseña: Tu contraseña
 | Zoho | smtp.zoho.com | 587 | TLS |
 | Mailgun | smtp.mailgun.org | 587 | TLS |
 
-## 🔐 Seguridad
+## Seguridad
 
 ### Medidas Implementadas
 
@@ -373,7 +373,7 @@ Header always set X-Frame-Options DENY
 Header always set X-XSS-Protection "1; mode=block"
 ```
 
-## 📊 Uso del Sistema
+## Uso del Sistema
 
 ### Flujo de Trabajo Típico
 
@@ -414,7 +414,7 @@ Header always set X-XSS-Protection "1; mode=block"
 - Gestión de productos
 - Dashboard y reportes
 
-## 📈 Generación de Reportes
+## Generación de Reportes
 
 ### Tipos de Reportes Disponibles
 
@@ -445,7 +445,7 @@ Header always set X-XSS-Protection "1; mode=block"
 - Filtros por fecha y estado
 - Límites configurables
 
-## 🛠️ Mantenimiento
+## Mantenimiento
 
 ### Backup de Base de Datos
 
@@ -495,7 +495,7 @@ php scripts/migrate.php
 rm -rf temp/cache/*
 ```
 
-## 🐛 Solución de Problemas
+## Solución de Problemas
 
 ### Problemas Comunes
 
@@ -547,7 +547,7 @@ define('DEBUG_MODE', true);
 define('DISPLAY_ERRORS', true);
 ```
 
-## 📞 Soporte
+## Soporte
 
 ### Documentación
 - [Wiki del Proyecto](wiki/)
@@ -565,16 +565,16 @@ define('DISPLAY_ERRORS', true);
 4. Push al branch
 5. Crear Pull Request
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
 
-## 🤝 Contribuidores
+## Contribuidores
 
-- **Desarrollador Principal**: Tu Nombre
+- **Desarrollador Principal**: leonxjass
 - **Colaboradores**: [Lista de colaboradores](CONTRIBUTORS.md)
 
-## 🗓️ Roadmap
+## Roadmap
 
 ### Versión 2.0 (Próxima)
 - [ ] API RESTful completa
@@ -593,6 +593,6 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 - [ ] Integración con redes sociales
 ---
 
-**¿Necesitas ayuda?** 📧 Contacta con nosotros en itsupport24@gmail.com
+**¿Necesitas ayuda?** Contacta con nosotros en itsupport24@gmail.com
 
 **¡Dale una estrella!** ⭐ Si este proyecto te es útil, no olvides darle una estrella en GitHub.
