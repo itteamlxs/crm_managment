@@ -2,10 +2,6 @@
 
 Un sistema completo de gestión de relaciones con clientes (CRM) desarrollado en PHP con MySQL, diseñado para empresas que necesitan administrar clientes, productos, cotizaciones y generar reportes detallados.
 
-![PHP](https://img.shields.io/badge/PHP-7.4%2B-blue)
-![MySQL](https://img.shields.io/badge/MySQL-5.7%2B-orange)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-2.2-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 📋 Características Principales
 
@@ -595,19 +591,8 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 - [ ] Sistema de tickets de soporte
 - [ ] Automatización de seguimiento
 - [ ] Integración con redes sociales
-
-## 📸 Galería
-
-| Dashboard | Cotizaciones | Productos |
-|-----------|-------------|-----------|
-| ![Dashboard](docs/images/dashboard-thumb.png) | ![Quotes](docs/images/quotes-thumb.png) | ![Products](docs/images/products-thumb.png) |
-
-| Clientes | Reportes | Configuración |
-|----------|----------|---------------|
-| ![Clients](docs/images/clients-thumb.png) | ![Reports](docs/images/reports-thumb.png) | ![Settings](docs/images/settings-thumb.png) |
-
 ---
 
-**¿Necesitas ayuda?** 📧 Contacta con nosotros en soporte@tu-empresa.com
+**¿Necesitas ayuda?** 📧 Contacta con nosotros en itsupport24@gmail.com
 
 **¡Dale una estrella!** ⭐ Si este proyecto te es útil, no olvides darle una estrella en GitHub.
