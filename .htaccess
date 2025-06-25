@@ -1,0 +1,28 @@
+# .htaccess simple para CRM
+RewriteEngine On
+
+# Cambiar según tu instalación:
+# Si está en la raíz: RewriteBase /
+# Si está en /crm/: RewriteBase /crm/
+RewriteBase /crm/
+
+# Proteger archivos sensibles
+<Files ".env">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "composer.*">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Servir archivos existentes directamente
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Enviar todo lo demás al router
+RewriteRule ^(.*)$ index.php [QSA,L]

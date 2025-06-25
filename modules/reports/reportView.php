@@ -23,7 +23,7 @@ $reportConfig = [
     'cotizaciones' => [
         'title' => 'Reportes de Cotizaciones',
         'description' => 'Genere reportes detallados de cotizaciones con análisis de tiempo y estado',
-        'icon' => '📄',
+        'icon' => '',
         'color' => 'blue',
         'tables' => [
             'quotes' => [
@@ -59,7 +59,7 @@ $reportConfig = [
     'productos' => [
         'title' => 'Reportes de Productos',
         'description' => 'Analice el rendimiento de productos con métricas de ventas reales y cotizaciones',
-        'icon' => '📦',
+        'icon' => '',
         'color' => 'green',
         'tables' => [
             'products' => [
@@ -97,7 +97,7 @@ $reportConfig = [
     'clientes' => [
         'title' => 'Reportes de Clientes',
         'description' => 'Análisis completo de clientes con métricas de actividad y valor de vida',
-        'icon' => '👥',
+        'icon' => '',
         'color' => 'purple',
         'tables' => [
             'clients' => [
@@ -130,7 +130,7 @@ $reportConfig = [
     'ventas' => [
         'title' => 'Reportes de Ventas Confirmadas',
         'description' => 'Análisis detallado de ventas reales (cotizaciones aprobadas) con métricas avanzadas',
-        'icon' => '📈',
+        'icon' => '',
         'color' => 'indigo',
         'tables' => [
             'sales_data' => [
@@ -185,23 +185,23 @@ $reportConfig = [
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         /* Iconos CSS simples para reemplazar Font Awesome */
-        .icon-chart::before { content: "📊"; }
-        .icon-file::before { content: "📄"; }
-        .icon-box::before { content: "📦"; }
-        .icon-users::before { content: "👥"; }
-        .icon-chart-line::before { content: "📈"; }
-        .icon-calendar::before { content: "📅"; }
-        .icon-filter::before { content: "🔍"; }
-        .icon-download::before { content: "⬇️"; }
-        .icon-eye::before { content: "👁️"; }
-        .icon-check::before { content: "✅"; }
-        .icon-times::before { content: "❌"; }
-        .icon-info::before { content: "ℹ️"; }
-        .icon-warning::before { content: "⚠️"; }
-        .icon-success::before { content: "✅"; }
-        .icon-error::before { content: "❌"; }
-        .icon-table::before { content: "📋"; }
-        .icon-cog::before { content: "⚙️"; }
+        .icon-chart::before { content: ""; }
+        .icon-file::before { content: ""; }
+        .icon-box::before { content: ""; }
+        .icon-users::before { content: ""; }
+        .icon-chart-line::before { content: ""; }
+        .icon-calendar::before { content: ""; }
+        .icon-filter::before { content: ""; }
+        .icon-download::before { content: ""; }
+        .icon-eye::before { content: ""; }
+        .icon-check::before { content: ""; }
+        .icon-times::before { content: ""; }
+        .icon-info::before { content: ""; }
+        .icon-warning::before { content: ""; }
+        .icon-success::before { content: ""; }
+        .icon-error::before { content: ""; }
+        .icon-table::before { content: ""; }
+        .icon-cog::before { content: ""; }
         
         /* Estilos personalizados para mejorar la experiencia */
         .report-type-card {
@@ -338,7 +338,7 @@ $reportConfig = [
                 <div class="text-right">
                     <div class="text-sm text-gray-500">
                         <span class="icon-info"></span>
-                        Los reportes de <strong>ventas</strong> incluyen solo cotizaciones aprobadas
+                        <!--Los reportes de <strong>ventas</strong> incluyen solo cotizaciones aprobadas-->
                     </div>
                 </div>
             </div>

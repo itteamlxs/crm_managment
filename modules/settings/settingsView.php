@@ -189,7 +189,7 @@ function decodeValue($value) {
                     </a>
                     <a href="?action=export" 
                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                        📥 Exportar Config
+                        Exportar Config
                     </a>
                 </div>
             </div>
@@ -204,7 +204,7 @@ function decodeValue($value) {
 
         <?php if ($success): ?>
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                ✅ <?php echo Security::escape($success); ?>
+                <?php echo Security::escape($success); ?>
             </div>
         <?php endif; ?>
 
@@ -213,22 +213,22 @@ function decodeValue($value) {
             <div class="border-b border-gray-200">
                 <nav class="flex space-x-8 px-6 pt-4">
                     <button onclick="showTab('general')" class="tab-button py-2 px-1 border-b-2 font-medium text-sm <?php echo $activeTab === 'general' ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                        🏢 General
+                        General
                     </button>
                     <button onclick="showTab('regional')" class="tab-button py-2 px-1 border-b-2 font-medium text-sm <?php echo $activeTab === 'regional' ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                        🌍 Regional
+                        Regional
                     </button>
                     <button onclick="showTab('tax')" class="tab-button py-2 px-1 border-b-2 font-medium text-sm <?php echo $activeTab === 'tax' ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                        💰 Impuestos
+                        Impuestos
                     </button>
                     <button onclick="showTab('email')" class="tab-button py-2 px-1 border-b-2 font-medium text-sm <?php echo $activeTab === 'email' ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                        📧 Correo
+                        Correo
                     </button>
                     <button onclick="showTab('appearance')" class="tab-button py-2 px-1 border-b-2 font-medium text-sm <?php echo $activeTab === 'appearance' ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                        🎨 Apariencia
+                        Apariencia
                     </button>
                     <button onclick="showTab('system')" class="tab-button py-2 px-1 border-b-2 font-medium text-sm <?php echo $activeTab === 'system' ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700'; ?>">
-                        🔧 Sistema
+                        Sistema
                     </button>
                 </nav>
             </div>
@@ -325,7 +325,7 @@ function decodeValue($value) {
                         </div>
                         
                         <div class="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h3 class="font-medium text-blue-800 mb-2">💡 Sobre el Slogan de la Empresa</h3>
+                            <h3 class="font-medium text-blue-800 mb-2">Sobre el Slogan de la Empresa</h3>
                             <ul class="text-blue-700 text-sm space-y-1">
                                 <li>• El slogan aparecerá en documentos, cotizaciones y comunicaciones oficiales</li>
                                 <li>• Debe ser conciso y reflejar los valores de tu empresa</li>
@@ -336,7 +336,7 @@ function decodeValue($value) {
                         <div class="mt-6 flex justify-end">
                             <button type="submit" 
                                     class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                💾 Guardar Cambios
+                                Guardar Cambios
                             </button>
                         </div>
                     </form>
@@ -359,8 +359,8 @@ function decodeValue($value) {
                                         name="language" 
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required>
-                                    <option value="es" <?php echo $settings['language'] === 'es' ? 'selected' : ''; ?>>🇪🇸 Español</option>
-                                    <option value="en" <?php echo $settings['language'] === 'en' ? 'selected' : ''; ?>>🇺🇸 English</option>
+                                    <option value="es" <?php echo $settings['language'] === 'es' ? 'selected' : ''; ?>>Español</option>
+                                    <option value="en" <?php echo $settings['language'] === 'en' ? 'selected' : ''; ?>>English</option>
                                 </select>
                             </div>
                             
@@ -436,7 +436,7 @@ function decodeValue($value) {
                         <div class="mt-6 flex justify-end">
                             <button type="submit" 
                                     class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                💾 Guardar Configuración Regional
+                                Guardar Configuración Regional
                             </button>
                         </div>
                     </form>
@@ -483,7 +483,7 @@ function decodeValue($value) {
                         </div>
                         
                         <div class="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h3 class="font-medium text-blue-800 mb-2">💡 Información sobre Impuestos</h3>
+                            <h3 class="font-medium text-blue-800 mb-2">Información sobre Impuestos</h3>
                             <ul class="text-blue-700 text-sm space-y-1">
                                 <li>• Esta configuración se aplicará como valor por defecto en nuevos productos</li>
                                 <li>• Los productos existentes mantendrán su configuración individual</li>
@@ -495,7 +495,7 @@ function decodeValue($value) {
                         <div class="mt-6 flex justify-end">
                             <button type="submit" 
                                     class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                💾 Guardar Configuración de Impuestos
+                                Guardar Configuración de Impuestos
                             </button>
                         </div>
                     </form>
@@ -599,7 +599,7 @@ function decodeValue($value) {
                         </div>
                         
                         <div class="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h3 class="font-medium text-blue-800 mb-2">💡 Configuración de Email</h3>
+                            <h3 class="font-medium text-blue-800 mb-2">Configuración de Email</h3>
                             <ul class="text-blue-700 text-sm space-y-1">
                                 <li>• <strong>Gmail:</strong> smtp.gmail.com, puerto 587, TLS</li>
                                 <li>• <strong>Outlook:</strong> smtp-mail.outlook.com, puerto 587, STARTTLS</li>
@@ -612,11 +612,11 @@ function decodeValue($value) {
                             <button type="button" 
                                     onclick="testEmailConnection()"
                                     class="bg-yellow-600 text-white px-6 py-2 rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500">
-                                🧪 Probar Conexión
+                                Probar Conexión
                             </button>
                             <button type="submit" 
                                     class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                💾 Guardar Configuración de Email
+                                Guardar Configuración de Email
                             </button>
                         </div>
                     </form>
@@ -690,7 +690,7 @@ function decodeValue($value) {
                                             id="uploadBtn"
                                             disabled
                                             class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                                        📤 Subir Logo
+                                        Subir Logo
                                     </button>
                                 </div>
                             </form>
@@ -717,7 +717,7 @@ function decodeValue($value) {
                                                       <?php echo $settings['theme'] === 'light' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'; ?>">
                                             <div class="w-8 h-8 bg-white border border-gray-300 rounded mr-3"></div>
                                             <div>
-                                                <div class="font-medium">☀️ Tema Claro</div>
+                                                <div class="font-medium">Tema Claro</div>
                                                 <div class="text-sm text-gray-500">Interfaz clara y limpia</div>
                                             </div>
                                         </label>
@@ -735,7 +735,7 @@ function decodeValue($value) {
                                                       <?php echo $settings['theme'] === 'dark' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'; ?>">
                                             <div class="w-8 h-8 bg-gray-800 border border-gray-600 rounded mr-3"></div>
                                             <div>
-                                                <div class="font-medium">🌙 Tema Oscuro</div>
+                                                <div class="font-medium">Tema Oscuro</div>
                                                 <div class="text-sm text-gray-500">Reduce la fatiga visual</div>
                                             </div>
                                         </label>
@@ -745,7 +745,7 @@ function decodeValue($value) {
                                 <div class="mt-6 flex justify-end">
                                     <button type="submit" 
                                             class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
-                                        🎨 Aplicar Tema
+                                        Aplicar Tema
                                     </button>
                                 </div>
                             </form>
@@ -846,7 +846,7 @@ function decodeValue($value) {
                                 
                                 <!-- Resetear configuración -->
                                 <div class="border border-gray-200 rounded-lg p-4 bg-white">
-                                    <h4 class="font-medium text-gray-800 mb-2">🔄 Resetear Configuración</h4>
+                                    <h4 class="font-medium text-gray-800 mb-2">Resetear Configuración</h4>
                                     <p class="text-sm text-gray-600 mb-3">Restaurar valores por defecto</p>
                                     
                                     <form method="POST" onsubmit="return confirm('¿Está seguro? Esto eliminará toda la configuración personalizada.')">
@@ -1077,10 +1077,10 @@ function decodeValue($value) {
                         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
                         if (allowedTypes.includes(file.type) && file.size <= 2 * 1024 * 1024) {
                             uploadBtn.disabled = false;
-                            uploadBtn.textContent = `📤 Subir ${file.name}`;
+                            uploadBtn.textContent = `Subir ${file.name}`;
                         } else {
                             uploadBtn.disabled = true;
-                            uploadBtn.textContent = '📤 Subir Logo';
+                            uploadBtn.textContent = 'Subir Logo';
                             alert('Archivo no válido. Use JPG, PNG o GIF menor a 2MB.');
                         }
                     }
@@ -1106,7 +1106,7 @@ function decodeValue($value) {
             
             // Mostrar loading
             resultDiv.className = 'mt-4 p-4 bg-blue-100 text-blue-700 rounded-md';
-            resultDiv.textContent = '🔄 Probando conexión...';
+            resultDiv.textContent = 'Probando conexión...';
             resultDiv.classList.remove('hidden');
             
             // Enviar petición
@@ -1118,15 +1118,15 @@ function decodeValue($value) {
             .then(data => {
                 if (data.success) {
                     resultDiv.className = 'mt-4 p-4 bg-green-100 text-green-700 rounded-md';
-                    resultDiv.textContent = '✅ ' + data.message;
+                    resultDiv.textContent = '' + data.message;
                 } else {
                     resultDiv.className = 'mt-4 p-4 bg-red-100 text-red-700 rounded-md';
-                    resultDiv.textContent = '❌ ' + data.message;
+                    resultDiv.textContent = '' + data.message;
                 }
             })
             .catch(error => {
                 resultDiv.className = 'mt-4 p-4 bg-red-100 text-red-700 rounded-md';
-                resultDiv.textContent = '❌ Error de conexión: ' + error.message;
+                resultDiv.textContent = 'Error de conexión: ' + error.message;
             });
         }
 

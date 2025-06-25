@@ -1,0 +1,28 @@
+#====================================================================#
+# 		EXPORTAR BASE DE DATOS FUNCIONAL MYSQL               #
+#====================================================================#
+
+
+
+## 1 - Puedes ejectuar el Schema.sql o exportar la base de datos [crm_managment.sql].
+
+## 2 - Si ejecutas un schema inserta un usuario administrador en la base de datos de
+##     de forma manual, usa el archivo [hash.php] para generar la contrasenia deseada
+##     encriptada y pegala en el campo de [password_hash] de la tabla de [usuarios].
+
+## 3 - Una vez echo esto podras acceder a la plataforma con el usuario y contrasenia
+##     creados.
+
+
+
+#====================================================================#
+#               COMO USAR EL ARCHIVO PASSWORD HASH                   #
+#====================================================================#
+
+## 1 - simplemente abres el archivo con tu editor de codigo preferido.
+
+## 2 - En la funcion hashPassword cambia la password por defecto a una
+##     personal tuya.
+
+##3 - desde tu localhost llama al archivo que te dara una contrasenia
+##    hasheada, esta es la que pegaras en la base de datos /users/password_hash

@@ -1,5 +1,4 @@
 <?php
-// Vista de gestión de usuarios - CORREGIDA
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -161,7 +160,7 @@ if (isset($_GET['success'])) {
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex justify-between items-center">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">👥 Gestión de Usuarios</h1>
+                    <h1 class="text-3xl font-bold text-gray-800">Gestión de Usuarios</h1>
                     <p class="text-gray-600 mt-2">Administrar usuarios del sistema CRM</p>
                 </div>
                 <div class="flex space-x-2">
@@ -171,7 +170,7 @@ if (isset($_GET['success'])) {
                     </a>
                     <button onclick="resetForm()" 
                             class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-                        ➕ Nuevo Usuario
+                        Nuevo Usuario
                     </button>
                 </div>
             </div>
@@ -186,7 +185,7 @@ if (isset($_GET['success'])) {
 
         <?php if ($success): ?>
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                ✅ <?php echo Security::escape($success); ?>
+                <?php echo Security::escape($success); ?>
             </div>
         <?php endif; ?>
 
@@ -262,8 +261,8 @@ if (isset($_GET['success'])) {
                                 name="role" 
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required>
-                            <option value="<?php echo ROLE_ADMIN; ?>">👑 Administrador</option>
-                            <option value="<?php echo ROLE_SELLER; ?>" selected>👤 Vendedor</option>
+                            <option value="<?php echo ROLE_ADMIN; ?>">Administrador</option>
+                            <option value="<?php echo ROLE_SELLER; ?>" selected>Vendedor</option>
                         </select>
                     </div>
                     
@@ -275,8 +274,8 @@ if (isset($_GET['success'])) {
                                 name="status" 
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 required>
-                            <option value="<?php echo STATUS_ACTIVE; ?>">✅ Activo</option>
-                            <option value="<?php echo STATUS_INACTIVE; ?>">❌ Inactivo</option>
+                            <option value="<?php echo STATUS_ACTIVE; ?>">Activo</option>
+                            <option value="<?php echo STATUS_INACTIVE; ?>">Inactivo</option>
                         </select>
                     </div>
                 </div>
@@ -285,12 +284,12 @@ if (isset($_GET['success'])) {
                     <button type="button" 
                             onclick="resetForm()"
                             class="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700">
-                        🔄 Limpiar
+                        Limpiar
                     </button>
                     <button type="submit" 
                             id="submit-btn"
                             class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">
-                        💾 Crear Usuario
+                        Crear Usuario
                     </button>
                 </div>
             </form>
@@ -327,24 +326,24 @@ if (isset($_GET['success'])) {
                                     <td class="border border-gray-300 px-4 py-2"><?php echo Security::escape($user['name']); ?></td>
                                     <td class="border border-gray-300 px-4 py-2">
                                         <span class="px-2 py-1 rounded text-sm <?php echo $user['role'] == ROLE_ADMIN ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'; ?>">
-                                            <?php echo Security::escape($user['role'] == ROLE_ADMIN ? '👑 Admin' : '👤 Vendedor'); ?>
+                                            <?php echo Security::escape($user['role'] == ROLE_ADMIN ? 'Admin' : 'Vendedor'); ?>
                                         </span>
                                     </td>
                                     <td class="border border-gray-300 px-4 py-2">
                                         <span class="px-2 py-1 rounded text-sm <?php echo $user['status'] == STATUS_ACTIVE ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
-                                            <?php echo Security::escape($user['status'] == STATUS_ACTIVE ? '✅ Activo' : '❌ Inactivo'); ?>
+                                            <?php echo Security::escape($user['status'] == STATUS_ACTIVE ? 'Activo' : 'Inactivo'); ?>
                                         </span>
                                     </td>
                                     <td class="border border-gray-300 px-4 py-2">
                                         <div class="flex space-x-2">
                                             <button onclick="editUser(<?php echo Security::escape(json_encode($user)); ?>)" 
                                                     class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
-                                                ✏️ Editar
+                                                Editar
                                             </button>
                                             <a href="?action=delete&id=<?php echo Security::escape($user['id']); ?>" 
                                                onclick="return confirm('¿Está seguro de eliminar este usuario?')" 
                                                class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
-                                                🗑️ Eliminar
+                                                Eliminar
                                             </a>
                                         </div>
                                     </td>
