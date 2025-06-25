@@ -97,8 +97,10 @@ class SimpleReportGenerator {
                 c.name as client_name,
                 c.email as client_email,
                 c.phone as client_phone,
+                c.address as client_address,
                 q.subtotal,
                 q.discount_percent,
+                ROUND(q.subtotal * q.discount_percent / 100, 2) as discount_amount,
                 q.tax_amount,
                 q.total_amount,
                 CASE q.status
@@ -111,11 +113,19 @@ class SimpleReportGenerator {
                     ELSE 'Desconocido'
                 END as quote_status,
                 q.notes,
-                q.created_at
+                q.created_at,
+                q.updated_at,
+                DATEDIFF(COALESCE(q.updated_at, NOW()), q.created_at) as days_in_process,
+                CASE 
+                    WHEN q.quote_date > q.valid_until THEN 'Fuera de plazo'
+                    WHEN q.status = 5 THEN 'Vencida'
+                    WHEN q.status = 3 THEN 'Cerrada exitosamente'
+                    ELSE 'En proceso'
+                END as timing_status
             FROM quotes q
             LEFT JOIN clients c ON q.client_id = c.id
             $whereClause
-            ORDER BY q.created_at DESC
+            ORDER BY q.quote_date DESC, q.total_amount DESC
             $limitClause
         ";
         
@@ -129,6 +139,7 @@ class SimpleReportGenerator {
     private function generateProductsReport($selectedFields, $dateFrom, $dateTo, $limit) {
         $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
         
+        // Consulta mejorada con métricas de ventas reales
         $query = "
             SELECT 
                 p.id,
@@ -137,6 +148,7 @@ class SimpleReportGenerator {
                 cat.name as category_name,
                 p.base_price,
                 p.tax_rate,
+                ROUND(p.base_price * (1 + p.tax_rate / 100), 2) as final_price,
                 p.unit,
                 p.stock,
                 CASE p.status
@@ -144,11 +156,65 @@ class SimpleReportGenerator {
                     WHEN 0 THEN 'Inactivo'
                     ELSE 'Desconocido'
                 END as product_status,
-                p.created_at
+                p.created_at,
+                
+                -- Métricas de cotizaciones
+                COALESCE(quote_stats.times_quoted, 0) as times_quoted,
+                COALESCE(quote_stats.total_quoted_quantity, 0) as total_quoted_quantity,
+                COALESCE(quote_stats.total_quoted_value, 0) as total_quoted_value,
+                
+                -- Métricas de ventas reales (solo cotizaciones aprobadas)
+                COALESCE(sales_stats.times_sold, 0) as times_sold,
+                COALESCE(sales_stats.total_sold_quantity, 0) as total_sold_quantity,
+                COALESCE(sales_stats.total_sales_value, 0) as total_sales_value,
+                COALESCE(sales_stats.avg_sale_price, 0) as avg_sale_price,
+                
+                -- Stock y rotación
+                CASE 
+                    WHEN p.stock IS NULL THEN 'No aplica'
+                    WHEN p.stock <= 5 THEN 'Stock crítico'
+                    WHEN p.stock <= 10 THEN 'Stock bajo'
+                    ELSE 'Stock normal'
+                END as stock_status,
+                
+                CASE 
+                    WHEN p.stock > 0 AND sales_stats.total_sold_quantity > 0 
+                    THEN ROUND(p.stock / (sales_stats.total_sold_quantity / 12), 2)
+                    ELSE NULL
+                END as months_inventory_remaining
+                
             FROM products p
             LEFT JOIN categories cat ON p.category_id = cat.id
+            
+            -- Subquery para estadísticas de cotizaciones
+            LEFT JOIN (
+                SELECT 
+                    qd.product_id,
+                    COUNT(qd.id) as times_quoted,
+                    SUM(qd.quantity) as total_quoted_quantity,
+                    SUM(qd.line_total_with_tax) as total_quoted_value
+                FROM quote_details qd
+                JOIN quotes q ON qd.quote_id = q.id
+                WHERE q.status IN (1,2,3,4)
+                GROUP BY qd.product_id
+            ) quote_stats ON p.id = quote_stats.product_id
+            
+            -- Subquery para estadísticas de ventas reales
+            LEFT JOIN (
+                SELECT 
+                    qd.product_id,
+                    COUNT(qd.id) as times_sold,
+                    SUM(qd.quantity) as total_sold_quantity,
+                    SUM(qd.line_total_with_tax) as total_sales_value,
+                    AVG(qd.unit_price) as avg_sale_price
+                FROM quote_details qd
+                JOIN quotes q ON qd.quote_id = q.id
+                WHERE q.status = 3
+                GROUP BY qd.product_id
+            ) sales_stats ON p.id = sales_stats.product_id
+            
             WHERE p.status = 1
-            ORDER BY p.name
+            ORDER BY total_sales_value DESC, times_sold DESC, p.name
             $limitClause
         ";
         
@@ -162,6 +228,7 @@ class SimpleReportGenerator {
     private function generateClientsReport($selectedFields, $dateFrom, $dateTo, $limit) {
         $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
         
+        // Query mejorada con análisis completo de clientes
         $query = "
             SELECT 
                 c.id,
@@ -175,16 +242,62 @@ class SimpleReportGenerator {
                     ELSE 'Desconocido'
                 END as client_status,
                 c.created_at,
+                
+                -- Métricas de cotizaciones
                 COUNT(q.id) as total_quotes,
+                SUM(CASE WHEN q.status = 1 THEN 1 ELSE 0 END) as draft_quotes,
+                SUM(CASE WHEN q.status = 2 THEN 1 ELSE 0 END) as sent_quotes,
                 SUM(CASE WHEN q.status = 3 THEN 1 ELSE 0 END) as approved_quotes,
+                SUM(CASE WHEN q.status = 4 THEN 1 ELSE 0 END) as rejected_quotes,
+                
+                -- Valores financieros
                 COALESCE(SUM(q.total_amount), 0) as total_quoted_value,
                 COALESCE(SUM(CASE WHEN q.status = 3 THEN q.total_amount ELSE 0 END), 0) as total_sales_value,
-                MAX(q.created_at) as last_quote_date
+                COALESCE(AVG(CASE WHEN q.status = 3 THEN q.total_amount END), 0) as avg_sale_value,
+                COALESCE(MAX(CASE WHEN q.status = 3 THEN q.total_amount END), 0) as largest_sale,
+                
+                -- Fechas importantes
+                MAX(q.created_at) as last_quote_date,
+                MAX(CASE WHEN q.status = 3 THEN q.quote_date END) as last_sale_date,
+                MIN(CASE WHEN q.status = 3 THEN q.quote_date END) as first_sale_date,
+                
+                -- Métricas calculadas
+                ROUND(
+                    CASE WHEN COUNT(q.id) > 0 
+                    THEN (SUM(CASE WHEN q.status = 3 THEN 1 ELSE 0 END) * 100.0 / COUNT(q.id))
+                    ELSE 0 END, 2
+                ) as conversion_rate,
+                
+                -- Clasificación del cliente
+                CASE 
+                    WHEN SUM(CASE WHEN q.status = 3 THEN q.total_amount ELSE 0 END) > 10000 THEN 'VIP'
+                    WHEN SUM(CASE WHEN q.status = 3 THEN q.total_amount ELSE 0 END) > 5000 THEN 'Premium'
+                    WHEN SUM(CASE WHEN q.status = 3 THEN q.total_amount ELSE 0 END) > 1000 THEN 'Regular'
+                    WHEN SUM(CASE WHEN q.status = 3 THEN q.total_amount ELSE 0 END) > 0 THEN 'Básico'
+                    ELSE 'Prospecto'
+                END as customer_tier,
+                
+                -- Estado de actividad
+                CASE 
+                    WHEN MAX(q.created_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 'Muy Activo'
+                    WHEN MAX(q.created_at) >= DATE_SUB(CURDATE(), INTERVAL 90 DAY) THEN 'Activo'
+                    WHEN MAX(q.created_at) >= DATE_SUB(CURDATE(), INTERVAL 180 DAY) THEN 'Poco Activo'
+                    WHEN MAX(q.created_at) IS NOT NULL THEN 'Inactivo'
+                    ELSE 'Sin Actividad'
+                END as activity_status,
+                
+                -- Días desde última actividad
+                CASE 
+                    WHEN MAX(q.created_at) IS NOT NULL 
+                    THEN DATEDIFF(CURDATE(), MAX(q.created_at))
+                    ELSE NULL
+                END as days_since_last_activity
+                
             FROM clients c
             LEFT JOIN quotes q ON c.id = q.client_id
             WHERE c.status = 1
             GROUP BY c.id, c.name, c.email, c.phone, c.address, c.status, c.created_at
-            ORDER BY c.name
+            ORDER BY total_sales_value DESC, conversion_rate DESC, last_quote_date DESC
             $limitClause
         ";
         
@@ -196,8 +309,8 @@ class SimpleReportGenerator {
     }
     
     private function generateSalesReport($selectedFields, $dateFrom, $dateTo, $limit) {
-        // SOLO COTIZACIONES APROBADAS - VENTAS REALES
-        $whereConditions = ["q.status = 3"]; // Status 3 = Aprobada = Venta confirmada
+        // REPORTE DE VENTAS MEJORADO - Solo cotizaciones aprobadas (status = 3)
+        $whereConditions = ["q.status = 3"]; // Solo ventas confirmadas
         $params = [];
         
         if ($dateFrom) {
@@ -212,39 +325,82 @@ class SimpleReportGenerator {
         $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
         $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
         
-        // CONSULTA CORREGIDA - Usando campos que SÍ existen en el esquema
         $query = "
             SELECT 
-                q.id,
-                q.quote_number,
+                q.id as sale_id,
+                q.quote_number as sale_number,
                 q.quote_date as sale_date,
+                q.valid_until,
                 c.name as client_name,
                 c.email as client_email,
                 c.phone as client_phone,
                 c.address as client_address,
+                
+                -- Valores de la venta
                 q.subtotal,
                 q.discount_percent,
+                ROUND(q.subtotal * q.discount_percent / 100, 2) as discount_amount,
                 q.tax_amount,
                 q.total_amount as sale_amount,
-                CASE q.status
-                    WHEN 3 THEN 'Venta Confirmada'
-                    ELSE 'Otro Estado'
-                END as sale_status,
-                q.notes,
-                q.valid_until,
-                q.created_at as processing_date
+                ROUND(q.total_amount - q.tax_amount, 2) as net_sale_amount,
+                
+                -- Información adicional de la venta
+                q.notes as sale_notes,
+                q.created_at as quote_created_date,
+                q.updated_at as sale_confirmed_date,
+                
+                -- Métricas de tiempo
+                DATEDIFF(q.quote_date, q.created_at) as days_to_close,
+                CASE 
+                    WHEN q.quote_date > q.valid_until THEN 'Aprobada fuera de plazo'
+                    ELSE 'Aprobada en tiempo'
+                END as timing_status,
+                
+                -- Análisis de descuentos
+                CASE 
+                    WHEN q.discount_percent = 0 THEN 'Sin descuento'
+                    WHEN q.discount_percent <= 5 THEN 'Descuento bajo'
+                    WHEN q.discount_percent <= 15 THEN 'Descuento moderado'
+                    ELSE 'Descuento alto'
+                END as discount_category,
+                
+                -- Clasificación por valor
+                CASE 
+                    WHEN q.total_amount < 100 THEN 'Venta pequeña'
+                    WHEN q.total_amount < 1000 THEN 'Venta mediana'
+                    WHEN q.total_amount < 5000 THEN 'Venta grande'
+                    ELSE 'Venta premium'
+                END as sale_category,
+                
+                -- Detalles de productos vendidos
+                (SELECT COUNT(DISTINCT qd.product_id) 
+                 FROM quote_details qd 
+                 WHERE qd.quote_id = q.id) as products_count,
+                 
+                (SELECT SUM(qd.quantity) 
+                 FROM quote_details qd 
+                 WHERE qd.quote_id = q.id) as total_items_sold,
+                 
+                -- Información del mes para análisis estacional
+                DATE_FORMAT(q.quote_date, '%Y-%m') as sale_month,
+                DATE_FORMAT(q.quote_date, '%M %Y') as sale_month_name,
+                DAYNAME(q.quote_date) as sale_day_of_week,
+                
+                -- Margen estimado (simple)
+                ROUND(q.total_amount * 0.3, 2) as estimated_profit_30_percent
+                
             FROM quotes q
-            LEFT JOIN clients c ON q.client_id = c.id
+            INNER JOIN clients c ON q.client_id = c.id
             $whereClause
-            ORDER BY q.quote_date DESC
+            ORDER BY q.quote_date DESC, q.total_amount DESC
             $limitClause
         ";
         
-        error_log("SALES REPORT - FULL SQL: " . $query);
-        error_log("SALES REPORT - PARAMS: " . print_r($params, true));
+        error_log("SALES REPORT OPTIMIZED - SQL: " . $query);
+        error_log("SALES REPORT OPTIMIZED - PARAMS: " . print_r($params, true));
         
         $data = $this->db->select($query, $params);
-        error_log("SALES REPORT - RECORDS FOUND: " . count($data));
+        error_log("SALES REPORT OPTIMIZED - RECORDS FOUND: " . count($data));
         
         $headers = $this->getSalesHeaders($selectedFields);
         $filteredData = $this->filterDataByFields($data, $selectedFields, 'sales_data');
@@ -267,13 +423,15 @@ class SimpleReportGenerator {
                     $dbColumn = $fieldMap[$table][$column];
                     $value = $row[$dbColumn] ?? '';
                     
-                    // Formatear valores
+                    // Formatear valores mejorado
                     if (strpos($column, 'date') !== false) {
                         $value = $value ? Utils::formatDateDisplay($value, false) : '';
-                    } elseif (strpos($column, 'amount') !== false || strpos($column, 'price') !== false) {
+                    } elseif (strpos($column, 'amount') !== false || strpos($column, 'price') !== false || strpos($column, 'value') !== false) {
                         $value = $value ? DEFAULT_CURRENCY_SYMBOL . number_format($value, 2) : '';
-                    } elseif (strpos($column, 'percent') !== false) {
-                        $value = $value ? $value . '%' : '';
+                    } elseif (strpos($column, 'percent') !== false || strpos($column, 'rate') !== false) {
+                        $value = $value ? number_format($value, 2) . '%' : '';
+                    } elseif (strpos($column, 'count') !== false || strpos($column, 'quantity') !== false || strpos($column, 'days') !== false) {
+                        $value = $value ? number_format($value, 0) : '0';
                     }
                     
                     $filteredRow[] = $value;
@@ -295,16 +453,20 @@ class SimpleReportGenerator {
                     'valid_until' => 'valid_until',
                     'subtotal' => 'subtotal',
                     'discount_percent' => 'discount_percent',
+                    'discount_amount' => 'discount_amount',
                     'tax_amount' => 'tax_amount',
                     'total_amount' => 'total_amount',
                     'status' => 'quote_status',
                     'notes' => 'notes',
-                    'created_at' => 'created_at'
+                    'created_at' => 'created_at',
+                    'days_in_process' => 'days_in_process',
+                    'timing_status' => 'timing_status'
                 ],
                 'clients' => [
                     'name' => 'client_name',
                     'email' => 'client_email',
-                    'phone' => 'client_phone'
+                    'phone' => 'client_phone',
+                    'address' => 'client_address'
                 ]
             ],
             'products' => [
@@ -313,10 +475,16 @@ class SimpleReportGenerator {
                     'name' => 'product_name',
                     'description' => 'description',
                     'base_price' => 'base_price',
+                    'final_price' => 'final_price',
                     'tax_rate' => 'tax_rate',
                     'unit' => 'unit',
                     'stock' => 'stock',
-                    'status' => 'product_status'
+                    'status' => 'product_status',
+                    'times_quoted' => 'times_quoted',
+                    'times_sold' => 'times_sold',
+                    'total_sales_value' => 'total_sales_value',
+                    'avg_sale_price' => 'avg_sale_price',
+                    'stock_status' => 'stock_status'
                 ],
                 'categories' => [
                     'name' => 'category_name'
@@ -337,16 +505,27 @@ class SimpleReportGenerator {
                     'approved_quotes' => 'approved_quotes',
                     'total_value' => 'total_quoted_value',
                     'approved_value' => 'total_sales_value',
-                    'last_quote_date' => 'last_quote_date'
+                    'last_quote_date' => 'last_quote_date',
+                    'conversion_rate' => 'conversion_rate',
+                    'customer_tier' => 'customer_tier',
+                    'activity_status' => 'activity_status'
                 ]
             ],
             'sales_data' => [
                 'sales_data' => [
-                    'quote_number' => 'quote_number',
-                    'client_name' => 'client_name',
+                    'sale_id' => 'sale_id',
+                    'sale_number' => 'sale_number',
                     'sale_date' => 'sale_date',
-                    'total_amount' => 'sale_amount',
-                    'sale_status' => 'sale_status'
+                    'sale_amount' => 'sale_amount',
+                    'net_sale_amount' => 'net_sale_amount',
+                    'client_name' => 'client_name',
+                    'days_to_close' => 'days_to_close',
+                    'timing_status' => 'timing_status',
+                    'discount_category' => 'discount_category',
+                    'sale_category' => 'sale_category',
+                    'products_count' => 'products_count',
+                    'total_items_sold' => 'total_items_sold',
+                    'estimated_profit_30_percent' => 'estimated_profit_30_percent'
                 ],
                 'clients' => [
                     'email' => 'client_email',
@@ -356,10 +535,11 @@ class SimpleReportGenerator {
                 'quotes' => [
                     'subtotal' => 'subtotal',
                     'discount_percent' => 'discount_percent',
+                    'discount_amount' => 'discount_amount',
                     'tax_amount' => 'tax_amount',
-                    'notes' => 'notes',
+                    'notes' => 'sale_notes',
                     'valid_until' => 'valid_until',
-                    'created_at' => 'processing_date'
+                    'created_at' => 'quote_created_date'
                 ]
             ]
         ];
@@ -375,14 +555,18 @@ class SimpleReportGenerator {
             'quotes.valid_until' => 'Válida Hasta',
             'quotes.subtotal' => 'Subtotal',
             'quotes.discount_percent' => 'Descuento (%)',
+            'quotes.discount_amount' => 'Monto Descuento',
             'quotes.tax_amount' => 'Impuestos',
             'quotes.total_amount' => 'Total',
             'quotes.status' => 'Estado',
             'quotes.notes' => 'Notas',
             'quotes.created_at' => 'Fecha de Creación',
+            'quotes.days_in_process' => 'Días en Proceso',
+            'quotes.timing_status' => 'Estado de Tiempo',
             'clients.name' => 'Nombre del Cliente',
             'clients.email' => 'Email del Cliente',
-            'clients.phone' => 'Teléfono del Cliente'
+            'clients.phone' => 'Teléfono del Cliente',
+            'clients.address' => 'Dirección del Cliente'
         ]);
     }
     
@@ -392,10 +576,16 @@ class SimpleReportGenerator {
             'products.name' => 'Nombre del Producto',
             'products.description' => 'Descripción',
             'products.base_price' => 'Precio Base',
+            'products.final_price' => 'Precio Final',
             'products.tax_rate' => 'Tasa de Impuesto',
             'products.unit' => 'Unidad',
             'products.stock' => 'Stock Disponible',
             'products.status' => 'Estado del Producto',
+            'products.times_quoted' => 'Veces Cotizado',
+            'products.times_sold' => 'Veces Vendido',
+            'products.total_sales_value' => 'Valor Total Vendido',
+            'products.avg_sale_price' => 'Precio Promedio Venta',
+            'products.stock_status' => 'Estado de Stock',
             'categories.name' => 'Categoría'
         ]);
     }
@@ -412,27 +602,39 @@ class SimpleReportGenerator {
             'quotes_summary.total_quotes' => 'Total de Cotizaciones',
             'quotes_summary.approved_quotes' => 'Cotizaciones Aprobadas',
             'quotes_summary.total_value' => 'Valor Total Cotizado',
-            'quotes_summary.approved_value' => 'Valor Aprobado',
-            'quotes_summary.last_quote_date' => 'Última Cotización'
+            'quotes_summary.approved_value' => 'Valor Total Vendido',
+            'quotes_summary.last_quote_date' => 'Última Cotización',
+            'quotes_summary.conversion_rate' => 'Tasa de Conversión (%)',
+            'quotes_summary.customer_tier' => 'Clasificación de Cliente',
+            'quotes_summary.activity_status' => 'Estado de Actividad'
         ]);
     }
     
     private function getSalesHeaders($selectedFields) {
         return $this->getHeadersForFields($selectedFields, [
-            'sales_data.quote_number' => 'Número de Venta',
-            'sales_data.client_name' => 'Cliente',
+            'sales_data.sale_id' => 'ID de Venta',
+            'sales_data.sale_number' => 'Número de Venta',
             'sales_data.sale_date' => 'Fecha de Venta',
-            'sales_data.total_amount' => 'Monto Total de Venta',
-            'sales_data.sale_status' => 'Estado de Venta',
+            'sales_data.sale_amount' => 'Monto Total de Venta',
+            'sales_data.net_sale_amount' => 'Monto Neto (sin impuestos)',
+            'sales_data.client_name' => 'Cliente',
+            'sales_data.days_to_close' => 'Días para Cerrar',
+            'sales_data.timing_status' => 'Estado de Tiempo',
+            'sales_data.discount_category' => 'Categoría de Descuento',
+            'sales_data.sale_category' => 'Categoría de Venta',
+            'sales_data.products_count' => 'Productos Diferentes',
+            'sales_data.total_items_sold' => 'Items Totales Vendidos',
+            'sales_data.estimated_profit_30_percent' => 'Ganancia Estimada (30%)',
             'clients.email' => 'Email del Cliente',
             'clients.phone' => 'Teléfono del Cliente', 
             'clients.address' => 'Dirección del Cliente',
             'quotes.subtotal' => 'Subtotal de la Venta',
             'quotes.discount_percent' => 'Descuento Aplicado (%)',
+            'quotes.discount_amount' => 'Monto de Descuento',
             'quotes.tax_amount' => 'Impuestos Cobrados',
             'quotes.notes' => 'Notas de la Venta',
             'quotes.valid_until' => 'Válida Hasta',
-            'quotes.created_at' => 'Fecha de Procesamiento'
+            'quotes.created_at' => 'Fecha de Creación de Cotización'
         ]);
     }
     
@@ -449,7 +651,7 @@ class SimpleReportGenerator {
             'cotizaciones' => 'cotizaciones',
             'productos' => 'productos',
             'clientes' => 'clientes',
-            'ventas' => 'ventas_aprobadas'
+            'ventas' => 'ventas_confirmadas'
         ];
         
         $typeName = $typeNames[$reportType] ?? 'reporte';
