@@ -595,4 +595,4 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 **¿Necesitas ayuda?** Contacta con nosotros en itsupport24@gmail.com
 
-**¡Dale una estrella!** ⭐ Si este proyecto te es útil, no olvides darle una estrella en GitHub.
+**¡Dale una estrella!** Si este proyecto te es útil, no olvides darle una estrella en GitHub.
