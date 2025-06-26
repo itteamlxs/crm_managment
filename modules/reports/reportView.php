@@ -196,7 +196,7 @@ $reportConfig = [
         .icon-eye::before { content: ""; }
         .icon-check::before { content: ""; }
         .icon-times::before { content: ""; }
-        .icon-info::before { content: ""; }
+        .icon-info::before { content: "ℹ"; }
         .icon-warning::before { content: ""; }
         .icon-success::before { content: ""; }
         .icon-error::before { content: ""; }
@@ -318,6 +318,11 @@ $reportConfig = [
         .color-indigo { color: #6366f1; }
         .bg-indigo-light { background-color: #eef2ff; }
         .border-indigo { border-color: #6366f1; }
+
+        .color-red { color: #ef4444; }
+        .color-yellow { color: #f59e0b; }
+        .color-pink { color: #ec4899; }
+        .color-gray { color: #6b7280; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -333,12 +338,12 @@ $reportConfig = [
                         <span class="icon-chart"></span>
                         Generador de Reportes Personalizados
                     </h1>
-                    <p class="text-gray-600">Seleccione los campos que necesita y genere reportes personalizados en CSV</p>
+                    <p class="text-gray-600">Seleccione los campos que necesita y genere reportes personalizados en CSV con datos reales</p>
                 </div>
                 <div class="text-right">
                     <div class="text-sm text-gray-500">
                         <span class="icon-info"></span>
-                        <!--Los reportes de <strong>ventas</strong> incluyen solo cotizaciones aprobadas-->
+                        <strong>Vista previa con datos reales de su BD</strong>
                     </div>
                 </div>
             </div>
@@ -409,8 +414,8 @@ $reportConfig = [
                         <span class="icon-filter color-purple"></span>
                     </div>
                     <div class="ml-3">
-                        <p class="text-sm font-medium text-gray-500">Filtros Avanzados</p>
-                        <p class="text-lg font-semibold text-gray-900">Disponibles</p>
+                        <p class="text-sm font-medium text-gray-500">Vista Previa</p>
+                        <p class="text-lg font-semibold text-gray-900">Con Datos Reales</p>
                     </div>
                 </div>
             </div>
@@ -596,7 +601,7 @@ $reportConfig = [
                             </button>
                             <button type="button" id="previewBtn" 
                                     class="btn btn-secondary">
-                                <span class="icon-eye mr-1"></span>Vista Previa
+                                <span class="icon-eye mr-1"></span>Vista Previa Real
                             </button>
                             <button type="submit" id="generateBtn"
                                     class="btn btn-success">
@@ -617,7 +622,7 @@ $reportConfig = [
                     </h3>
                     <div class="flex items-center space-x-3">
                         <span class="text-sm text-gray-500" id="previewInfo">
-                            Mostrando muestra de datos
+                            Cargando datos reales...
                         </span>
                         <button type="button" onclick="hidePreview()" 
                                 class="text-gray-400 hover:text-gray-600">
@@ -633,19 +638,11 @@ $reportConfig = [
                             <!-- Headers dinámicos -->
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            <!-- Datos de ejemplo -->
+                            <!-- Datos reales -->
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-4 p-3 bg-blue-50 rounded-lg">
-                    <div class="flex items-start">
-                        <span class="icon-info color-blue mt-0.5 mr-2"></span>
-                        <div class="text-sm text-blue-700">
-                            <p class="font-medium">Vista Previa</p>
-                            <p>Esta es una muestra de cómo se verán sus datos. El archivo CSV final contendrá todos los registros según los filtros aplicados.</p>
-                        </div>
-                    </div>
-                </div>
+                <!-- Footer dinámico se insertará aquí por JavaScript -->
             </div>
         </div>
     </div>
@@ -961,91 +958,116 @@ $reportConfig = [
             updateSelectedFields();
         }
 
+        // FUNCIÓN PRINCIPAL: Vista previa con datos reales de la BD
         function showPreview() {
-            console.log('Mostrando vista previa');
+            console.log('Mostrando vista previa con datos reales de la base de datos');
             if (selectedFields.length === 0) {
                 showNotification('Por favor seleccione al menos un campo para la vista previa.', 'warning');
                 return;
             }
 
-            // Generar headers
-            const headers = selectedFields.map(field => {
-                const parts = field.split('.');
-                const tableName = parts[0];
-                const fieldName = parts[1];
-                
-                const config = reportConfig[currentReportType];
-                if (config.tables[tableName] && config.tables[tableName].fields[fieldName]) {
-                    return config.tables[tableName].fields[fieldName];
-                }
-                return fieldName;
+            // Mostrar indicador de carga
+            const previewBtn = document.getElementById('previewBtn');
+            if (previewBtn) {
+                previewBtn.disabled = true;
+                previewBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Cargando datos reales...';
+            }
+
+            // Preparar datos para enviar
+            const formData = new FormData();
+            formData.append('report_type', currentReportType);
+            formData.append('date_from', document.getElementById('dateFrom').value || '');
+            formData.append('date_to', document.getElementById('dateTo').value || '');
+            
+            // Agregar campos seleccionados
+            selectedFields.forEach(field => {
+                formData.append('fields[]', field);
             });
 
-            // Generar datos de ejemplo
-            const sampleData = generateSampleData(selectedFields, 5);
-
-            // Mostrar tabla
-            displayPreviewTable(headers, sampleData);
-            
-            // Mostrar contenedor
-            const previewContainer = document.getElementById('previewContainer');
-            const previewInfo = document.getElementById('previewInfo');
-            
-            if (previewContainer) previewContainer.classList.remove('hidden');
-            if (previewInfo) {
-                previewInfo.textContent = `Mostrando 5 registros de ejemplo de ${selectedFields.length} campos`;
-            }
-            
-            // Scroll a vista previa
-            if (previewContainer) {
-                previewContainer.scrollIntoView({ 
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
+            // Realizar solicitud AJAX
+            fetch('previewData.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Respuesta del servidor:', data);
+                
+                if (data.success) {
+                    // Mostrar datos reales
+                    displayPreviewTable(data.headers, data.data);
+                    
+                    // Mostrar contenedor con información real
+                    const previewContainer = document.getElementById('previewContainer');
+                    const previewInfo = document.getElementById('previewInfo');
+                    
+                    if (previewContainer) previewContainer.classList.remove('hidden');
+                    if (previewInfo) {
+                        previewInfo.innerHTML = `
+                            <span class="icon-success mr-1"></span>
+                            Vista previa con datos reales - Mostrando ${data.total_records} registros de ${selectedFields.length} campos
+                        `;
+                        previewInfo.className = 'text-sm text-green-600 font-medium';
+                    }
+                    
+                    // Scroll a vista previa
+                    if (previewContainer) {
+                        previewContainer.scrollIntoView({ 
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                    
+                    // Actualizar el mensaje en la parte inferior
+                    updatePreviewFooter(data.total_records, true);
+                    
+                } else {
+                    console.error('Error del servidor:', data.error);
+                    showNotification('Error al cargar vista previa: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error en la solicitud:', error);
+                showNotification('Error de conexión al cargar vista previa', 'error');
+            })
+            .finally(() => {
+                // Restaurar botón
+                if (previewBtn) {
+                    previewBtn.disabled = false;
+                    previewBtn.innerHTML = '<span class="icon-eye mr-1"></span>Vista Previa Real';
+                }
+            });
         }
 
-        function generateSampleData(fields, rowCount) {
-            const sampleData = [];
+        function updatePreviewFooter(totalRecords, isRealData) {
+            const previewContainer = document.getElementById('previewContainer');
+            if (!previewContainer) return;
             
-            for (let i = 0; i < rowCount; i++) {
-                const row = fields.map(field => {
-                    const fieldName = field.split('.')[1];
-                    
-                    // Generar datos según el tipo de campo
-                    if (fieldName.includes('date') || fieldName.includes('created_at')) {
-                        const randomDate = new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000);
-                        return randomDate.toISOString().split('T')[0];
-                    } else if (fieldName.includes('amount') || fieldName.includes('price') || fieldName.includes('total')) {
-                        return '€' + (Math.random() * 10000).toFixed(2);
-                    } else if (fieldName.includes('percent') || fieldName.includes('rate')) {
-                        return (Math.random() * 100).toFixed(2) + '%';
-                    } else if (fieldName.includes('email')) {
-                        const domains = ['empresa.com', 'cliente.es', 'negocio.net'];
-                        return `usuario${i + 1}@${domains[Math.floor(Math.random() * domains.length)]}`;
-                    } else if (fieldName.includes('phone')) {
-                        return `+34 ${Math.floor(Math.random() * 900000000) + 100000000}`;
-                    } else if (fieldName.includes('status')) {
-                        const statuses = ['Activo', 'Inactivo', 'Pendiente', 'Aprobado', 'Rechazado'];
-                        return statuses[Math.floor(Math.random() * statuses.length)];
-                    } else if (fieldName.includes('name') || fieldName.includes('client')) {
-                        const names = ['Empresa ABC S.L.', 'Comercial XYZ', 'Industrias DEF', 'Servicios GHI'];
-                        return names[Math.floor(Math.random() * names.length)];
-                    } else if (fieldName.includes('id')) {
-                        return Math.floor(Math.random() * 9999) + 1;
-                    } else if (fieldName.includes('count') || fieldName.includes('quantity') || fieldName.includes('days')) {
-                        return Math.floor(Math.random() * 100) + 1;
-                    } else if (fieldName.includes('category')) {
-                        const categories = ['Electrónicos', 'Oficina', 'Servicios', 'Productos'];
-                        return categories[Math.floor(Math.random() * categories.length)];
-                    } else {
-                        return `Ejemplo ${i + 1}`;
-                    }
-                });
-                sampleData.push(row);
+            // Buscar o crear el footer
+            let footer = previewContainer.querySelector('.preview-footer');
+            if (!footer) {
+                footer = document.createElement('div');
+                footer.className = 'preview-footer mt-4 p-3 rounded-lg';
+                
+                const tableContainer = previewContainer.querySelector('.overflow-x-auto');
+                if (tableContainer && tableContainer.parentNode) {
+                    tableContainer.parentNode.insertBefore(footer, tableContainer.nextSibling);
+                }
             }
             
-            return sampleData;
+            if (isRealData) {
+                footer.className = 'preview-footer mt-4 p-3 bg-green-50 rounded-lg border border-green-200';
+                footer.innerHTML = `
+                    <div class="flex items-start">
+                        <span class="icon-success text-green-600 mt-0.5 mr-2"></span>
+                        <div class="text-sm text-green-700">
+                            <p class="font-medium">Vista Previa con Datos Reales</p>
+                            <p>Mostrando ${totalRecords} registros reales de su base de datos. El archivo CSV final contendrá todos los registros según los filtros aplicados.</p>
+                            ${totalRecords === 0 ? '<p class="mt-1 text-orange-600"><strong>Nota:</strong> No se encontraron registros con los filtros actuales.</p>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         function displayPreviewTable(headers, data) {
@@ -1069,15 +1091,29 @@ $reportConfig = [
             // Datos
             const tbody = table.querySelector('tbody');
             if (tbody) {
-                tbody.innerHTML = data.map((row, index) => `
-                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                        ${row.map(cell => `
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-b border-gray-100">
-                                ${cell}
+                if (data.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="${headers.length}" class="px-6 py-8 text-center text-gray-500">
+                                <div class="flex flex-col items-center">
+                                    <span class="icon-info text-3xl mb-2"></span>
+                                    <p class="font-medium">No hay datos disponibles</p>
+                                    <p class="text-sm">Intente ajustar los filtros de fecha o verificar que existen registros en la base de datos.</p>
+                                </div>
                             </td>
-                        `).join('')}
-                    </tr>
-                `).join('');
+                        </tr>
+                    `;
+                } else {
+                    tbody.innerHTML = data.map((row, index) => `
+                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors">
+                            ${row.map(cell => `
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-b border-gray-100">
+                                    ${cell || '<span class="text-gray-400">-</span>'}
+                                </td>
+                            `).join('')}
+                        </tr>
+                    `).join('');
+                }
             }
         }
 
@@ -1158,11 +1194,11 @@ $reportConfig = [
                 const generateBtn = document.getElementById('generateBtn');
                 if (generateBtn) {
                     const originalText = generateBtn.innerHTML;
-                    generateBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Generando...';
+                    generateBtn.innerHTML = '<span class="loading-spinner" style="display: inline-block;"></span> Generando CSV con datos reales...';
                     generateBtn.disabled = true;
                     
                     // Mostrar notificación de inicio
-                    showNotification('Generando reporte, por favor espere...', 'info');
+                    showNotification('Generando reporte con datos reales de la base de datos, por favor espere...', 'info');
                     
                     // Restaurar botón después de un tiempo (en caso de error)
                     setTimeout(() => {
@@ -1188,7 +1224,7 @@ $reportConfig = [
             }
         });
 
-        console.log('Scripts cargados correctamente');
+        console.log('Scripts cargados correctamente - Vista previa con datos reales habilitada');
     </script>
 </body>
 </html>

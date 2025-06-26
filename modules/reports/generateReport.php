@@ -31,6 +31,12 @@ class SimpleReportGenerator {
             $dateTo = $_POST['date_to'] ?? null;
             $limit = $_POST['limit'] ?? null;
             
+            error_log("REPORTE DEBUG - Tipo: " . $reportType);
+            error_log("REPORTE DEBUG - Campos: " . print_r($selectedFields, true));
+            error_log("REPORTE DEBUG - Fecha desde: " . $dateFrom);
+            error_log("REPORTE DEBUG - Fecha hasta: " . $dateTo);
+            error_log("REPORTE DEBUG - Límite: " . $limit);
+            
             if (empty($selectedFields)) {
                 throw new Exception('Debe seleccionar al menos un campo');
             }
@@ -61,6 +67,16 @@ class SimpleReportGenerator {
                     throw new Exception('Tipo de reporte no válido');
             }
             
+            error_log("REPORTE DEBUG - Resultado generado con " . count($result['data']) . " registros");
+            
+            // Verificar si hay datos
+            if (empty($result['data'])) {
+                error_log("REPORTE DEBUG - No hay datos para los filtros especificados");
+                $_SESSION['error'] = 'No se encontraron datos para los filtros especificados.';
+                Utils::redirect('/modules/reports/reportView.php');
+                return;
+            }
+            
             // Generar CSV
             $filename = $this->generateFilename($reportType);
             Utils::generateCsv($result['data'], $filename, $result['headers']);
@@ -86,7 +102,11 @@ class SimpleReportGenerator {
         }
         
         $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
-        $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
+        $limitClause = '';
+        
+        if ($limit && is_numeric($limit)) {
+            $limitClause = 'LIMIT ' . intval($limit);
+        }
         
         $query = "
             SELECT 
@@ -129,7 +149,12 @@ class SimpleReportGenerator {
             $limitClause
         ";
         
+        error_log("COTIZACIONES QUERY: " . $query);
+        error_log("COTIZACIONES PARAMS: " . print_r($params, true));
+        
         $data = $this->db->select($query, $params);
+        error_log("COTIZACIONES RESULTADOS: " . count($data) . " registros encontrados");
+        
         $headers = $this->getQuoteHeaders($selectedFields);
         $filteredData = $this->filterDataByFields($data, $selectedFields, 'quotes');
         
@@ -137,9 +162,11 @@ class SimpleReportGenerator {
     }
     
     private function generateProductsReport($selectedFields, $dateFrom, $dateTo, $limit) {
-        $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
+        $limitClause = '';
+        if ($limit && is_numeric($limit)) {
+            $limitClause = 'LIMIT ' . intval($limit);
+        }
         
-        // Consulta mejorada con métricas de ventas reales
         $query = "
             SELECT 
                 p.id,
@@ -218,7 +245,10 @@ class SimpleReportGenerator {
             $limitClause
         ";
         
+        error_log("PRODUCTOS QUERY: " . $query);
         $data = $this->db->select($query);
+        error_log("PRODUCTOS RESULTADOS: " . count($data) . " registros encontrados");
+        
         $headers = $this->getProductHeaders($selectedFields);
         $filteredData = $this->filterDataByFields($data, $selectedFields, 'products');
         
@@ -226,9 +256,11 @@ class SimpleReportGenerator {
     }
     
     private function generateClientsReport($selectedFields, $dateFrom, $dateTo, $limit) {
-        $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
+        $limitClause = '';
+        if ($limit && is_numeric($limit)) {
+            $limitClause = 'LIMIT ' . intval($limit);
+        }
         
-        // Query mejorada con análisis completo de clientes
         $query = "
             SELECT 
                 c.id,
@@ -301,7 +333,10 @@ class SimpleReportGenerator {
             $limitClause
         ";
         
+        error_log("CLIENTES QUERY: " . $query);
         $data = $this->db->select($query);
+        error_log("CLIENTES RESULTADOS: " . count($data) . " registros encontrados");
+        
         $headers = $this->getClientHeaders($selectedFields);
         $filteredData = $this->filterDataByFields($data, $selectedFields, 'clients');
         
@@ -309,7 +344,6 @@ class SimpleReportGenerator {
     }
     
     private function generateSalesReport($selectedFields, $dateFrom, $dateTo, $limit) {
-        // REPORTE DE VENTAS MEJORADO - Solo cotizaciones aprobadas (status = 3)
         $whereConditions = ["q.status = 3"]; // Solo ventas confirmadas
         $params = [];
         
@@ -323,7 +357,11 @@ class SimpleReportGenerator {
         }
         
         $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
-        $limitClause = $limit && is_numeric($limit) ? 'LIMIT ' . intval($limit) : '';
+        $limitClause = '';
+        
+        if ($limit && is_numeric($limit)) {
+            $limitClause = 'LIMIT ' . intval($limit);
+        }
         
         $query = "
             SELECT 
@@ -396,11 +434,11 @@ class SimpleReportGenerator {
             $limitClause
         ";
         
-        error_log("SALES REPORT OPTIMIZED - SQL: " . $query);
-        error_log("SALES REPORT OPTIMIZED - PARAMS: " . print_r($params, true));
+        error_log("VENTAS QUERY: " . $query);
+        error_log("VENTAS PARAMS: " . print_r($params, true));
         
         $data = $this->db->select($query, $params);
-        error_log("SALES REPORT OPTIMIZED - RECORDS FOUND: " . count($data));
+        error_log("VENTAS RESULTADOS: " . count($data) . " registros encontrados");
         
         $headers = $this->getSalesHeaders($selectedFields);
         $filteredData = $this->filterDataByFields($data, $selectedFields, 'sales_data');

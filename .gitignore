@@ -1,2 +1,3 @@
 #Ignorar archivos innecesarios#
 vendor
+.git
